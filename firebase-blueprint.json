@@ -1,0 +1,192 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "location": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "admin", "moderator"] },
+        "isSuspended": { "type": "boolean" }
+      },
+      "required": ["uid", "username", "createdAt", "role"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Zyno group or supergroup",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "handle": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "private", "supergroup", "broadcast"] },
+        "adminIds": { "type": "array", "items": { "type": "string" } },
+        "memberIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "pinnedMessageId": { "type": "string" },
+        "slowMode": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "adminIds", "memberIds", "createdAt"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "Zyno broadcast channel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "handle": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "private"] },
+        "adminIds": { "type": "array", "items": { "type": "string" } },
+        "subscriberIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "viewCount": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "adminIds", "subscriberIds", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Message in a group, channel, or private chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "type": { "type": "string", "enum": ["text", "image", "system", "file", "voice"] },
+        "imageUrl": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "replyTo": { "type": "string" }
+      },
+      "required": ["id", "chatId", "senderId", "content", "timestamp", "type"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Temporary user story",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["image", "video"] },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" },
+        "viewers": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "userId", "mediaUrl", "type", "createdAt", "expiresAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "User feed post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "content": { "type": "string" },
+        "mediaUrls": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "userId", "content", "createdAt"]
+    },
+    "HelpTicket": {
+      "title": "HelpTicket",
+      "description": "Support ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["login", "chat", "payment", "report", "account", "other"] },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "pending", "resolved"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "category", "description", "status", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "reason": { "type": "string", "enum": ["spam", "abuse", "impersonation", "scam", "inappropriate", "other"] },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "action_taken"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "reporterId", "targetId", "reason", "status", "createdAt"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Admin banner/ad",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "link": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "imageUrl", "isActive", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Group data"
+    },
+    "/channels/{channelId}": {
+      "schema": "Channel",
+      "description": "Channel data"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "All messages"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "User stories"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "User posts"
+    },
+    "/help_tickets/{ticketId}": {
+      "schema": "HelpTicket",
+      "description": "Support tickets"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "User reports"
+    },
+    "/banners/{bannerId}": {
+      "schema": "Banner",
+      "description": "Admin banners"
+    }
+  }
+}

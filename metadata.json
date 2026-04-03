@@ -1,0 +1,9 @@
+{
+  "name": "Zynochat",
+  "description": "A highly advanced Telegram-like real-time communication platform with AI integration, groups, channels, and admin controls.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
