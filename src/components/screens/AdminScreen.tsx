@@ -22,7 +22,8 @@ import {
   Trash2,
   Eye,
   Plus,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, Report, HelpTicket, Banner } from '../../types';
@@ -71,9 +72,18 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
   useEffect(() => {
     if (!isLocked) {
       const unsubBanners = ZynoService.subscribeToBanners(setBanners);
+      
+      if (activeTab === 'users') {
+        ZynoService.getAllUsers().then(setUsers);
+      } else if (activeTab === 'reports') {
+        ZynoService.getAllReports().then(setReports);
+      } else if (activeTab === 'help') {
+        ZynoService.getAllHelpTickets().then(setTickets);
+      }
+
       return () => unsubBanners();
     }
-  }, [isLocked]);
+  }, [isLocked, activeTab]);
 
   if (isLocked) {
     return (
@@ -120,10 +130,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
   }
 
   const stats = [
-    { label: 'Total Users', value: '124.5K', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Active Reports', value: '12', icon: Flag, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Open Tickets', value: '45', icon: HelpCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Total Groups', value: '8.2K', icon: MessageSquare, color: 'text-plum-600', bg: 'bg-plum-50' },
+    { label: 'Total Users', value: users.length || '124.5K', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Active Reports', value: reports.filter(r => r.status === 'pending').length || '12', icon: Flag, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Open Tickets', value: tickets.filter(t => t.status === 'open').length || '45', icon: HelpCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Total Banners', value: banners.length, icon: Megaphone, color: 'text-plum-600', bg: 'bg-plum-50' },
   ];
 
   const [isAddBannerModalOpen, setIsAddBannerModalOpen] = useState(false);
@@ -138,6 +148,22 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
     });
     setIsAddBannerModalOpen(false);
     setNewBanner({ title: '', description: '', imageUrl: '', link: '' });
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (confirm('Are you sure you want to delete this banner?')) {
+      await ZynoService.deleteBanner(id);
+    }
+  };
+
+  const handleUpdateReportStatus = async (id: string, status: 'reviewed' | 'action_taken') => {
+    await ZynoService.updateReportStatus(id, status);
+    ZynoService.getAllReports().then(setReports);
+  };
+
+  const handleUpdateTicketStatus = async (id: string, status: 'resolved' | 'pending') => {
+    await ZynoService.updateHelpTicketStatus(id, status);
+    ZynoService.getAllHelpTickets().then(setTickets);
   };
 
   return (
@@ -205,25 +231,135 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">Recent Activities</h2>
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className={`p-5 flex items-center justify-between group hover:bg-gray-50 transition-colors ${i !== 5 ? 'border-b border-gray-50' : ''}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center shadow-inner">
-                        <UserPlus className="w-5 h-5 text-gray-400" />
+              <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">System Health</h2>
+              <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-charcoal">Firebase Connection</span>
+                  <span className="flex items-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-widest">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    Online
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-charcoal">Storage Usage</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">1.2 GB / 5 GB</span>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="w-[24%] h-full bg-plum-700" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="space-y-4">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">User Directory</h2>
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+              {users.map((user) => (
+                <div key={user.uid} className="p-5 flex items-center justify-between border-b border-gray-50 last:border-none group hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gray-100 overflow-hidden shadow-inner">
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <User className="w-6 h-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-charcoal tracking-tight">{user.displayName}</h4>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">@{user.username} • {user.role}</p>
+                    </div>
+                  </div>
+                  <button className="p-2 text-gray-300 hover:text-plum-700 transition-colors">
+                    <Edit3 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="space-y-4">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">Content Reports</h2>
+            <div className="space-y-4">
+              {reports.map((report) => (
+                <div key={report.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                        <AlertTriangle className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-black text-charcoal tracking-tight text-sm">New User Registered</h4>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">2 minutes ago</p>
+                        <h4 className="font-black text-charcoal tracking-tight uppercase text-[10px] tracking-widest">{report.reason}</h4>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(report.createdAt).toLocaleString()}</p>
                       </div>
                     </div>
-                    <button className="p-2 text-gray-300 hover:text-gray-900 transition-colors">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                    <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                      report.status === 'pending' ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {report.status}
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-2xl">{report.details}</p>
+                  {report.status === 'pending' && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleUpdateReportStatus(report.id, 'action_taken')}
+                        className="flex-1 py-3 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-700/20"
+                      >
+                        Action Taken
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateReportStatus(report.id, 'reviewed')}
+                        className="flex-1 py-3 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'help' && (
+          <div className="space-y-4">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest px-2">Support Tickets</h2>
+            <div className="space-y-4">
+              {tickets.map((ticket) => (
+                <div key={ticket.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <HelpCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-charcoal tracking-tight">{ticket.title}</h4>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ticket #{ticket.id.slice(0, 8)}</p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                      ticket.status === 'open' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {ticket.status}
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-2xl">{ticket.description}</p>
+                  {ticket.status === 'open' && (
+                    <button 
+                      onClick={() => handleUpdateTicketStatus(ticket.id, 'resolved')}
+                      className="w-full py-3 bg-plum-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-plum-700/20"
+                    >
+                      Mark as Resolved
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -249,7 +385,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                         <button className="p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white/30 transition-colors">
                           <Edit3 className="w-5 h-5" />
                         </button>
-                        <button className="p-3 bg-red-500/20 backdrop-blur-md rounded-2xl text-white hover:bg-red-500/40 transition-colors">
+                        <button 
+                          onClick={() => handleDeleteBanner(banner.id)}
+                          className="p-3 bg-red-500/20 backdrop-blur-md rounded-2xl text-white hover:bg-red-500/40 transition-colors"
+                        >
                           <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
@@ -264,8 +403,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             </div>
           </div>
         )}
-
-        {/* Other tabs would have similar implementations */}
       </div>
 
       {/* Add Banner Modal */}

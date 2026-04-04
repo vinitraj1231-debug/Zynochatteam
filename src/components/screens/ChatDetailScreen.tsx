@@ -31,13 +31,15 @@ import {
   VideoOff,
   Volume2,
   Edit3,
-  MessageCircle
+  MessageCircle,
+  PhoneOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Message, UserProfile, Group, Channel, VideoChatState, GroupPermissions } from '../../types';
 import { ZynoService } from '../../zynoService';
 import { auth, db } from '../../firebase';
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import VideoCallOverlay from '../ui/VideoCallOverlay';
 
 interface ChatDetailScreenProps {
   chat: any;
@@ -148,6 +150,7 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
 
   const [isMember, setIsMember] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [isVideoCallActive, setIsVideoCallActive] = useState(false);
 
   useEffect(() => {
     if (!chat.id || !auth.currentUser) return;
@@ -224,31 +227,34 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
     if (!auth.currentUser || !chatData) return;
     const isActive = !chatData.videoChat?.isActive;
     await ZynoService.toggleVideoChat(chat.id, chat.type as any, isActive, auth.currentUser.uid);
+    if (isActive) setIsVideoCallActive(true);
   };
 
   const handleJoinVideoChat = async () => {
     if (!auth.currentUser) return;
-    await ZynoService.joinVideoChat(chat.id, chat.type as any, auth.currentUser.uid);
+    await ZynoService.joinVideoCall(chat.id, chat.type as any, auth.currentUser.uid);
+    setIsVideoCallActive(true);
   };
 
   const handleLeaveVideoChat = async () => {
     if (!auth.currentUser) return;
-    await ZynoService.leaveVideoChat(chat.id, chat.type as any, auth.currentUser.uid);
+    await ZynoService.leaveVideoCall(chat.id, chat.type as any, auth.currentUser.uid);
+    setIsVideoCallActive(false);
   };
 
   const canSendMessages = isAdmin || (chatData && 'permissions' in chatData ? chatData.permissions?.canSendMessages : true);
 
   return (
-    <div className="h-full flex flex-col bg-[#f0f2f5] relative overflow-hidden">
+    <div className="h-full flex flex-col bg-wa-chat-bg relative overflow-hidden">
       {/* Chat Header */}
-      <header className="h-20 bg-plum-700 text-white flex items-center justify-between px-4 shadow-xl z-50">
+      <header className="h-20 bg-wa-dark-teal text-white flex items-center justify-between px-4 shadow-xl z-50">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsSettingsOpen(true)}>
             <div className="relative">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-xl shadow-inner ring-1 ring-white/30 backdrop-blur-sm overflow-hidden">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl shadow-inner ring-1 ring-white/30 backdrop-blur-sm overflow-hidden">
                 {chat.photoURL ? (
                   <img src={chat.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
@@ -256,13 +262,13 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
                 )}
               </div>
               {chat.isOnline && (
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-4 border-plum-700 shadow-lg" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-wa-green rounded-full border-4 border-wa-dark-teal shadow-lg" />
               )}
             </div>
             <div className="flex flex-col">
               <h3 className="font-black tracking-tight text-lg leading-tight">{chat.name}</h3>
               <div className="flex items-center gap-1.5">
-                {chat.type === 'private' && <Lock className="w-2.5 h-2.5 text-green-500" />}
+                {chat.type === 'private' && <Lock className="w-2.5 h-2.5 text-wa-green" />}
                 <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
                   {chat.type === 'group' ? `${(chatData as Group)?.memberIds?.length || 0} Members` : 
                    chat.type === 'channel' ? `${(chatData as Channel)?.subscriberIds?.length || 0} Subscribers` : 
@@ -279,7 +285,7 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
           </button>
           <button 
             onClick={handleToggleVideoChat}
-            className={`p-2.5 rounded-xl transition-colors ${chatData?.videoChat?.isActive ? 'bg-green-500 text-white' : 'hover:bg-white/10 text-white'}`}
+            className={`p-2.5 rounded-xl transition-colors ${chatData?.videoChat?.isActive ? 'bg-wa-green text-white' : 'hover:bg-white/10 text-white'}`}
           >
             <Video className="w-5 h-5" />
           </button>
@@ -338,17 +344,17 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-green-600 text-white px-6 py-3 flex items-center justify-between shadow-lg relative z-40"
+            className="bg-wa-green text-white px-6 py-3 flex items-center justify-between shadow-lg relative z-40"
           >
             <div className="flex items-center gap-4">
               <div className="flex -space-x-2">
                 {chatData.videoChat.participants.slice(0, 3).map((p, i) => (
-                  <div key={i} className="w-8 h-8 rounded-full bg-white/20 border-2 border-green-600 flex items-center justify-center text-[10px] font-bold">
+                  <div key={i} className="w-8 h-8 rounded-full bg-white/20 border-2 border-wa-green flex items-center justify-center text-[10px] font-bold">
                     {p.slice(0, 2).toUpperCase()}
                   </div>
                 ))}
                 {chatData.videoChat.participants.length > 3 && (
-                  <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-green-600 flex items-center justify-center text-[10px] font-bold">
+                  <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-wa-green flex items-center justify-center text-[10px] font-bold">
                     +{chatData.videoChat.participants.length - 3}
                   </div>
                 )}
@@ -361,15 +367,15 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
             <div className="flex items-center gap-2">
               {chatData.videoChat.participants.includes(auth.currentUser?.uid || '') ? (
                 <button 
-                  onClick={handleLeaveVideoChat}
-                  className="px-4 py-2 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors"
+                  onClick={() => setIsVideoCallActive(true)}
+                  className="px-4 py-2 bg-wa-dark-teal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-wa-dark-teal/90 transition-colors"
                 >
-                  Leave
+                  Open Call
                 </button>
               ) : (
                 <button 
                   onClick={handleJoinVideoChat}
-                  className="px-4 py-2 bg-white text-green-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-50 transition-colors"
+                  className="px-4 py-2 bg-white text-wa-green rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
                 >
                   Join
                 </button>
@@ -380,7 +386,7 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
       </AnimatePresence>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-opacity-5">
         {messages.map((msg, i) => {
           const isMe = msg.senderId === auth.currentUser?.uid;
           if (msg.isDeleted) {
@@ -400,13 +406,13 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
               className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div 
-                className="w-10 h-10 rounded-2xl bg-white shadow-sm flex-shrink-0 overflow-hidden cursor-pointer ring-1 ring-black/5"
+                className="w-10 h-10 rounded-full bg-white shadow-sm flex-shrink-0 overflow-hidden cursor-pointer ring-1 ring-black/5"
                 onClick={() => onNavigateToProfile?.(msg.senderId)}
               >
                 {msg.senderPhotoURL ? (
                   <img src={msg.senderPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-plum-50 text-plum-700 font-black text-xs">
+                  <div className="w-full h-full flex items-center justify-center bg-wa-teal/10 text-wa-teal font-black text-xs">
                     {msg.senderName?.slice(0, 2).toUpperCase()}
                   </div>
                 )}
@@ -414,29 +420,29 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
               <div className={`max-w-[75%] flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                 {!isMe && chat.type !== 'private' && (
                   <span 
-                    className="text-[10px] font-black text-plum-700 uppercase tracking-widest px-2 mb-1 cursor-pointer hover:underline"
+                    className="text-[10px] font-black text-wa-teal uppercase tracking-widest px-2 mb-1 cursor-pointer hover:underline"
                     onClick={() => onNavigateToProfile?.(msg.senderId)}
                   >
                     {msg.senderName}
                   </span>
                 )}
-                <div className={`px-4 py-3 rounded-3xl shadow-sm relative group ${
+                <div className={`px-4 py-3 rounded-2xl shadow-sm relative group ${
                   isMe 
-                    ? 'bg-plum-700 text-white rounded-tr-none shadow-plum-700/20' 
+                    ? 'bg-wa-light-green text-charcoal rounded-tr-none' 
                     : 'bg-white text-charcoal rounded-tl-none border border-gray-100'
                 }`}>
                   <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
                   <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
+                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isMe ? 'text-gray-500' : 'text-gray-400'}`}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     {isMe && (
                       msg.status === 'read' ? (
-                        <CheckCheck className="w-3 h-3 text-blue-400" />
+                        <CheckCheck className="w-3 h-3 text-wa-blue" />
                       ) : msg.status === 'delivered' ? (
-                        <CheckCheck className="w-3 h-3 text-white/60" />
+                        <CheckCheck className="w-3 h-3 text-gray-500" />
                       ) : (
-                        <Check className="w-3 h-3 text-white/60" />
+                        <Check className="w-3 h-3 text-gray-500" />
                       )
                     )}
                   </div>
@@ -459,14 +465,14 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-100">
+      <div className="p-2 bg-wa-chat-bg border-t border-gray-200">
         {!isMember ? (
           <div className="flex flex-col items-center gap-4 py-2">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">You are not a member of this {chat.type}</p>
             <button 
               onClick={handleJoin}
               disabled={isJoining}
-              className="w-full bg-plum-700 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-plum-700/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+              className="w-full bg-wa-teal text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-wa-teal/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
             >
               {isJoining ? 'Joining...' : `Join ${chat.type}`}
             </button>
@@ -494,13 +500,13 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
         ) : (
           <form onSubmit={handleSend} className="flex flex-col gap-2">
             {slowModeCountdown > 0 && (
-              <p className="text-[8px] font-black text-plum-600 uppercase tracking-widest text-center animate-pulse">
+              <p className="text-[8px] font-black text-wa-teal uppercase tracking-widest text-center animate-pulse">
                 Slow mode active: Wait {slowModeCountdown}s
               </p>
             )}
-            <div className="flex items-end gap-3">
-              <div className="flex-1 bg-gray-100 rounded-[2rem] p-2 flex items-end gap-2 shadow-inner group focus-within:bg-white focus-within:ring-2 focus-within:ring-plum-500/20 transition-all">
-                <button type="button" className="p-3 text-gray-400 hover:text-plum-700 transition-colors">
+            <div className="flex items-end gap-2 px-2">
+              <div className="flex-1 bg-white rounded-[2rem] p-1 flex items-end gap-1 shadow-sm group transition-all">
+                <button type="button" className="p-3 text-gray-500 hover:text-wa-teal transition-colors">
                   <Smile className="w-6 h-6" />
                 </button>
                 <textarea 
@@ -516,7 +522,7 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
                   className="flex-1 bg-transparent border-none focus:ring-0 py-3 text-sm font-bold text-charcoal resize-none max-h-32 custom-scrollbar placeholder:text-gray-400 disabled:opacity-50"
                   rows={1}
                 />
-                <button type="button" className="p-3 text-gray-400 hover:text-plum-700 transition-colors">
+                <button type="button" className="p-3 text-gray-500 hover:text-wa-teal transition-colors">
                   <Paperclip className="w-6 h-6" />
                 </button>
               </div>
@@ -524,18 +530,26 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
               <button 
                 type="submit"
                 disabled={!input.trim() || slowModeCountdown > 0}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl transition-all ${
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all ${
                   input.trim() && slowModeCountdown === 0
-                    ? 'bg-plum-700 text-white shadow-plum-700/30 hover:scale-110 active:scale-95' 
-                    : 'bg-gray-100 text-gray-400'
+                    ? 'bg-wa-teal text-white shadow-wa-teal/30 hover:scale-110 active:scale-95' 
+                    : 'bg-wa-teal text-white shadow-wa-teal/30'
                 }`}
               >
-                {input.trim() ? <Send className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+                {input.trim() ? <Send className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
               </button>
             </div>
           </form>
         )}
       </div>
+
+      <VideoCallOverlay 
+        isActive={isVideoCallActive}
+        onLeave={handleLeaveVideoChat}
+        participants={chatData?.videoChat?.participants || []}
+        currentUser={currentUserProfile!}
+        chatName={chat.name}
+      />
 
       {/* Advanced Settings Modal */}
       <AnimatePresence>

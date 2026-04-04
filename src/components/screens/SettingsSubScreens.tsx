@@ -35,7 +35,7 @@ export const PrivacySettingsScreen: React.FC<SubScreenProps> = ({ onBack, user }
   const handleSave = async (updates: any) => {
     const newPrivacy = { ...privacy, ...updates };
     setPrivacy(newPrivacy);
-    await ZynoService.updateUserProfile(user.uid, { privacy: newPrivacy });
+    await ZynoService.updateProfile(user.uid, { privacy: newPrivacy });
   };
 
   return (

@@ -15,6 +15,14 @@
   
   --color-charcoal: #1a1a1a;
   
+  /* WhatsApp-like palette */
+  --color-wa-teal: #128C7E;
+  --color-wa-dark-teal: #075E54;
+  --color-wa-green: #25D366;
+  --color-wa-light-green: #DCF8C6;
+  --color-wa-chat-bg: #ECE5DD;
+  --color-wa-blue: #34B7F1;
+  
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }

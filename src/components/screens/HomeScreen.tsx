@@ -188,19 +188,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             </div>
             
             <div className="grid grid-cols-1 gap-3">
-              {[
-                { name: 'Zyno Global', members: '2.4M', icon: '🌍', trend: '+12%' },
-                { name: 'Crypto Pulse', members: '890K', icon: '💎', trend: '+5%' },
-              ].map((item, i) => (
-                <div key={i} className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer">
+              {trendingChannels.slice(0, 2).map((item, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => onNavigate('chat_detail', item)}
+                  className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-4">
-                    <div className="text-2xl">{item.icon}</div>
+                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-xl shadow-inner">
+                      {item.photoURL ? (
+                        <img src={item.photoURL} alt="" className="w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <Megaphone className="w-5 h-5 text-white/40" />
+                      )}
+                    </div>
                     <div>
                       <h4 className="text-white font-bold text-sm tracking-tight">{item.name}</h4>
-                      <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{item.members} Members</p>
+                      <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Trending Community</p>
                     </div>
                   </div>
-                  <span className="text-green-400 text-[10px] font-black">{item.trend}</span>
+                  <ChevronRight className="w-4 h-4 text-white/20" />
                 </div>
               ))}
             </div>

@@ -61,8 +61,10 @@ import {
   ChatSettingsScreen 
 } from './components/screens/SettingsSubScreens';
 
+import StatusScreen from './components/screens/StatusScreen';
+
 type AppMode = 'main' | 'chat_detail' | 'help' | 'report' | 'ai' | 'admin' | 'auth' | 'profile_view' | 'privacy_settings' | 'notification_settings' | 'theme_settings' | 'chat_settings';
-type TabId = 'home' | 'chats' | 'search' | 'profile' | 'settings';
+type TabId = 'home' | 'chats' | 'status' | 'search' | 'profile' | 'settings';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -265,6 +267,11 @@ const App: React.FC = () => {
                     {activeTab === 'chats' && (
                       <motion.div key="chats" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full w-full">
                         <ChatsScreen onSelectChat={(chat) => handleNavigate('chat_detail', chat)} />
+                      </motion.div>
+                    )}
+                    {activeTab === 'status' && (
+                      <motion.div key="status" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full w-full">
+                        <StatusScreen />
                       </motion.div>
                     )}
                     {activeTab === 'search' && (

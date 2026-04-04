@@ -162,18 +162,43 @@ export const ZynoService = {
     }
   },
 
+  async joinVideoCall(chatId: string, type: 'group' | 'channel', userId: string) {
+    try {
+      const collectionName = type === 'group' ? 'groups' : 'channels';
+      const docRef = doc(db, collectionName, chatId);
+      await updateDoc(docRef, {
+        'videoChat.participants': arrayUnion(userId)
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `${type}s/${chatId}`);
+    }
+  },
+
+  async leaveVideoCall(chatId: string, type: 'group' | 'channel', userId: string) {
+    try {
+      const collectionName = type === 'group' ? 'groups' : 'channels';
+      const docRef = doc(db, collectionName, chatId);
+      await updateDoc(docRef, {
+        'videoChat.participants': arrayRemove(userId)
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `${type}s/${chatId}`);
+    }
+  },
+
   async markMessagesAsRead(chatId: string, userId: string) {
     try {
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', chatId),
-        where('senderId', '!=', userId),
         where('status', '!=', 'read')
       );
       const snapshot = await getDocs(q);
-      const batch = snapshot.docs.map(docSnap => 
-        updateDoc(doc(db, 'messages', docSnap.id), { status: 'read' })
-      );
+      const batch = snapshot.docs
+        .filter(docSnap => docSnap.data().senderId !== userId)
+        .map(docSnap => 
+          updateDoc(doc(db, 'messages', docSnap.id), { status: 'read' })
+        );
       await Promise.all(batch);
     } catch (e) {
       console.error('Error marking messages as read:', e);
@@ -473,5 +498,82 @@ export const ZynoService = {
       const banners = snapshot.docs.map(doc => doc.data() as Banner);
       callback(banners);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'banners'));
-  }
+  },
+
+  async getTrending() {
+    try {
+      const groupsQ = query(collection(db, 'groups'), where('type', '==', 'public'), limit(5));
+      const channelsQ = query(collection(db, 'channels'), where('type', '==', 'public'), limit(5));
+      
+      const [groupsSnap, channelsSnap] = await Promise.all([getDocs(groupsQ), getDocs(channelsQ)]);
+      
+      const groups = groupsSnap.docs.map(doc => ({ ...doc.data(), type: 'group', id: doc.id }));
+      const channels = channelsSnap.docs.map(doc => ({ ...doc.data(), type: 'channel', id: doc.id }));
+      
+      return [...groups, ...channels].sort(() => Math.random() - 0.5);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, 'trending');
+      return [];
+    }
+  },
+
+  async getAllUsers() {
+    try {
+      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(docSnap => docSnap.data() as UserProfile);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, 'users');
+      return [];
+    }
+  },
+
+  async getAllReports() {
+    try {
+      const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(docSnap => docSnap.data() as Report);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, 'reports');
+      return [];
+    }
+  },
+
+  async getAllHelpTickets() {
+    try {
+      const q = query(collection(db, 'help_tickets'), orderBy('createdAt', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(docSnap => docSnap.data() as HelpTicket);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, 'help_tickets');
+      return [];
+    }
+  },
+
+  async updateReportStatus(reportId: string, status: 'reviewed' | 'action_taken') {
+    try {
+      const docRef = doc(db, 'reports', reportId);
+      await updateDoc(docRef, { status });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `reports/${reportId}`);
+    }
+  },
+
+  async updateHelpTicketStatus(ticketId: string, status: 'pending' | 'resolved') {
+    try {
+      const docRef = doc(db, 'help_tickets', ticketId);
+      await updateDoc(docRef, { status });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `help_tickets/${ticketId}`);
+    }
+  },
+
+  async deleteBanner(bannerId: string) {
+    try {
+      const docRef = doc(db, 'banners', bannerId);
+      await deleteDoc(docRef);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `banners/${bannerId}`);
+    }
+  },
 };
