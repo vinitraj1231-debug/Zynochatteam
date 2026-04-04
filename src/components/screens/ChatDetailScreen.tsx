@@ -213,9 +213,15 @@ const ChatDetailScreen: React.FC<ChatDetailScreenProps> = ({ chat, onBack, onNav
       newMessage.recipientId = otherUserId;
     }
 
-    await ZynoService.sendMessage(newMessage);
-    setInput('');
-    setLastMessageTime(Date.now());
+    try {
+      await ZynoService.sendMessage(newMessage);
+      setInput('');
+      setLastMessageTime(Date.now());
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      // Show error feedback to user
+      alert("Failed to send message. Please check your connection.");
+    }
   };
 
   const handleDeleteMessage = async (messageId: string) => {

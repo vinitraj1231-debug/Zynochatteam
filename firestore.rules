@@ -151,7 +151,7 @@ service cloud.firestore {
 
     function isMember(chatId) {
       return isAuthenticated() && (
-        chatId.matches(".*" + request.auth.uid + ".*") ||
+        chatId.matches("^.*" + request.auth.uid + ".*$") ||
         (exists(/databases/$(database)/documents/groups/$(chatId)) && (
           request.auth.uid in get(/databases/$(database)/documents/groups/$(chatId)).data.memberIds ||
           get(/databases/$(database)/documents/groups/$(chatId)).data.type in ['public', 'supergroup', 'broadcast']
@@ -172,11 +172,11 @@ service cloud.firestore {
     }
 
     function isGroupAdmin(groupId) {
-      return isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+      return isAuthenticated() && exists(/databases/$(database)/documents/groups/$(groupId)) && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
     }
 
     function isChannelAdmin(channelId) {
-      return isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.adminIds;
+      return isAuthenticated() && exists(/databases/$(database)/documents/channels/$(channelId)) && request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.adminIds;
     }
 
     // ===============================================================
@@ -184,7 +184,7 @@ service cloud.firestore {
     // ===============================================================
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'username', 'createdAt', 'role']) &&
-             data.uid is string && data.uid == request.auth.uid &&
+             data.uid is string && 
              data.username is string && data.username.size() >= 3 && data.username.size() <= 20 &&
              data.createdAt is number &&
              data.role in ['user', 'admin', 'moderator'] &&
@@ -195,9 +195,9 @@ service cloud.firestore {
     function isValidGroup(data) {
       return data.keys().hasAll(['id', 'name', 'type', 'adminIds', 'memberIds', 'createdAt', 'createdBy']) &&
              data.id is string && data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
-             data.type in ['public', 'private', 'supergroup'] &&
+             data.type in ['public', 'private', 'supergroup', 'broadcast'] &&
              data.adminIds is list && data.memberIds is list &&
-             data.createdAt is number && data.createdBy == request.auth.uid;
+             data.createdAt is number;
     }
 
     function isValidChannel(data) {
@@ -205,7 +205,7 @@ service cloud.firestore {
              data.id is string && data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
              data.type in ['public', 'private', 'broadcast'] &&
              data.adminIds is list && data.subscriberIds is list &&
-             data.createdAt is number && data.createdBy == request.auth.uid;
+             data.createdAt is number;
     }
 
     function isValidMessage(data) {
@@ -214,8 +214,7 @@ service cloud.firestore {
              data.senderId == request.auth.uid &&
              data.content is string && data.content.size() > 0 && data.content.size() <= 5000 &&
              data.timestamp is number &&
-             data.type in ['text', 'image', 'system', 'file', 'voice'] &&
-             (!('recipientId' in data) || data.recipientId is string);
+             data.type in ['text', 'image', 'system', 'file', 'voice'];
     }
 
     // ===============================================================
@@ -229,6 +228,9 @@ service cloud.firestore {
                       request.resource.data.uid == resource.data.uid &&
                       request.resource.data.createdAt == resource.data.createdAt &&
                       (request.resource.data.role == resource.data.role || isAdmin());
+      allow update: if isAuthenticated() && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['blockedByUids']) &&
+                      request.auth.uid in request.resource.data.blockedByUids;
       allow update: if isAdmin();
     }
 
@@ -243,7 +245,8 @@ service cloud.firestore {
         (request.auth.uid in resource.data.adminIds && isValidGroup(request.resource.data)) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) &&
          (resource.data.type == 'public' || request.auth.uid in resource.data.memberIds)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['videoChat'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasAny(['videoChat']) && 
+         (request.auth.uid in resource.data.memberIds || resource.data.type == 'public')) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions', 'slowMode']) && request.auth.uid in resource.data.adminIds)
       );
       allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
@@ -260,7 +263,8 @@ service cloud.firestore {
         (request.auth.uid in resource.data.adminIds && isValidChannel(request.resource.data)) ||
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['subscriberIds']) &&
          (resource.data.type == 'public' || request.auth.uid in resource.data.subscriberIds)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['videoChat']))
+        (request.resource.data.diff(resource.data).affectedKeys().hasAny(['videoChat']) &&
+         (request.auth.uid in resource.data.subscriberIds || resource.data.type == 'public'))
       );
       allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
     }
@@ -273,6 +277,7 @@ service cloud.firestore {
                       !isBlockedByRecipient(request.resource.data);
       allow update: if isAuthenticated() && (
                       (resource.data.senderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasAny(['content', 'id', 'isDeleted', 'deletedBy'])) ||
+                      (isMember(resource.data.chatId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'read') ||
                       isAdmin()
                     );
       allow delete: if isAuthenticated() && (

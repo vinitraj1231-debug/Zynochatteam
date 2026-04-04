@@ -194,14 +194,21 @@ export const ZynoService = {
         where('status', '!=', 'read')
       );
       const snapshot = await getDocs(q);
-      const batch = snapshot.docs
+      
+      // Filter out messages sent by the current user and update status to read
+      const updates = snapshot.docs
         .filter(docSnap => docSnap.data().senderId !== userId)
         .map(docSnap => 
           updateDoc(doc(db, 'messages', docSnap.id), { status: 'read' })
+            .catch(err => console.warn(`Failed to mark message ${docSnap.id} as read:`, err))
         );
-      await Promise.all(batch);
+      
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
     } catch (e) {
-      console.error('Error marking messages as read:', e);
+      // Don't throw here to avoid crashing the UI, just log it
+      console.error('Error in markMessagesAsRead:', e);
     }
   },
 
