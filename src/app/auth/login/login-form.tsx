@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, LogIn, KeyRound, CheckCircle2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabase } from '@/lib/supabase';
-import { auth, googleProvider } from '@/firebase';
+import { auth, googleProvider, db, handleFirestoreError, OperationType } from '@/firebase';
 import { signInWithPopup } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
@@ -73,7 +74,7 @@ export default function LoginForm() {
 
       if (error) {
         // Fallback to 'magiclink' if 'email' fails
-        const { error: secondError } = await supabase.auth.verifyOtp({
+        const { data: secondData, error: secondError } = await supabase.auth.verifyOtp({
           email,
           token: otp,
           type: 'magiclink',
@@ -83,6 +84,39 @@ export default function LoginForm() {
           setError(secondError.message);
           setLoading(false);
           return;
+        }
+
+        // Update user profile in Firestore
+        if (secondData.user) {
+          try {
+            const userRef = doc(db, 'users', secondData.user.id);
+            await setDoc(userRef, {
+              uid: secondData.user.id,
+              username: email.split('@')[0],
+              displayName: email.split('@')[0],
+              email: email,
+              lastSeen: Date.now(),
+            }, { merge: true });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.WRITE, `users/${secondData.user.id}`);
+          }
+        }
+      } else {
+        // Update user profile in Firestore for 'email' type success
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          try {
+            const userRef = doc(db, 'users', user.id);
+            await setDoc(userRef, {
+              uid: user.id,
+              username: email.split('@')[0],
+              displayName: email.split('@')[0],
+              email: email,
+              lastSeen: Date.now(),
+            }, { merge: true });
+          } catch (err) {
+            handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
+          }
         }
       }
       
@@ -101,6 +135,22 @@ export default function LoginForm() {
       console.log('Calling signInWithPopup...');
       const result = await signInWithPopup(auth, googleProvider);
       console.log('Google login success:', result.user.email);
+
+      // Create/Update user profile in Firestore
+      try {
+        const userRef = doc(db, 'users', result.user.uid);
+        await setDoc(userRef, {
+          uid: result.user.uid,
+          username: result.user.email?.split('@')[0] || 'user',
+          displayName: result.user.displayName || result.user.email?.split('@')[0],
+          photoURL: result.user.photoURL,
+          email: result.user.email,
+          lastSeen: Date.now(),
+        }, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${result.user.uid}`);
+      }
+
       router.push('/dashboard');
     } catch (err) {
       console.error('Google login error:', err);
@@ -110,29 +160,29 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4">
-      <div className="glass-card rounded-[2.5rem] p-8 md:p-12 space-y-10 relative overflow-hidden">
+    <div className="w-full max-w-md mx-auto p-4 md:p-6">
+      <div className="glass-card rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-12 space-y-8 md:space-y-10 relative overflow-hidden">
         {/* Decorative background elements */}
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
 
         {/* Logo Section */}
-        <div className="flex flex-col items-center text-center space-y-6 relative z-10">
+        <div className="flex flex-col items-center text-center space-y-4 md:space-y-6 relative z-10">
           <motion.div 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="relative"
           >
-            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-500/20 ring-1 ring-black/5 animate-float overflow-hidden">
-              <MessageSquare className="w-10 h-10 text-indigo-600" />
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl md:rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-500/20 ring-1 ring-black/5 animate-float overflow-hidden">
+              <MessageSquare className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 md:w-8 md:h-8 bg-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white">
+              <Shield className="w-3 h-3 md:w-4 md:h-4 text-white" />
             </div>
           </motion.div>
           <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">ZYNOCHAT</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">ZYNOCHAT</h1>
+            <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">
               {mode === 'email' ? 'Welcome Back' : 'Verify Identity'}
             </p>
           </div>

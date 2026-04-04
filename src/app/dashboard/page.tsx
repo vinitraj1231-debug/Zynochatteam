@@ -56,7 +56,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -99,49 +99,54 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between">
-          <div className="relative w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search anything..."
-              className="w-full bg-slate-50 border-none rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 transition-all"
-            />
+        <header className="h-20 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-4 flex-1">
+            <button className="lg:hidden p-2 text-slate-600">
+              <LayoutDashboard className="w-6 h-6" />
+            </button>
+            <div className="relative w-full max-w-md hidden sm:block">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search anything..."
+                className="w-full bg-slate-50 border-none rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500/10 transition-all"
+              />
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-bold text-slate-900">{user?.email}</p>
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{user?.email}</p>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Premium User</p>
             </div>
-            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm ring-1 ring-slate-200">
+            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm ring-1 ring-slate-200 flex-shrink-0">
               <User className="w-6 h-6 text-slate-400" />
             </div>
           </div>
         </header>
 
         {/* Dashboard Content */}
-        <div className="p-8 space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-slate-900">Overview</h2>
-            <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all">
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl md:text-2xl font-black text-slate-900">Overview</h2>
+            <button className="bg-indigo-600 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold text-xs md:text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all flex-shrink-0">
               New Chat
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
               { label: 'Total Messages', value: '1,284', change: '+12%', color: 'indigo' },
               { label: 'Active Chats', value: '42', change: '+5%', color: 'purple' },
               { label: 'Storage Used', value: '84%', change: '-2%', color: 'blue' },
             ].map((stat, i) => (
-              <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+              <div key={i} className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm space-y-3 md:space-y-4">
+                <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
                 <div className="flex items-end justify-between">
-                  <h3 className="text-3xl font-black text-slate-900">{stat.value}</h3>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                  <h3 className="text-2xl md:text-3xl font-black text-slate-900">{stat.value}</h3>
+                  <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg ${
                     stat.change.startsWith('+') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                   }`}>
                     {stat.change}
@@ -151,19 +156,19 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Recent Activity</h3>
-              <button className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">View All</button>
+          <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="p-5 md:p-6 border-b border-slate-50 flex items-center justify-between">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest text-[10px] md:text-xs">Recent Activity</h3>
+              <button className="text-[9px] md:text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline">View All</button>
             </div>
             <div className="p-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
-                  <MessageSquare className="w-8 h-8 text-slate-300" />
+              <div className="flex flex-col items-center justify-center py-8 md:py-12 text-center space-y-4">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-slate-300" />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-bold text-slate-900">No recent chats</p>
-                  <p className="text-sm text-slate-500">Start a new conversation to see it here.</p>
+                  <p className="font-bold text-slate-900 text-sm md:text-base">No recent chats</p>
+                  <p className="text-xs md:text-sm text-slate-500">Start a conversation to see it here.</p>
                 </div>
               </div>
             </div>

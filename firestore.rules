@@ -1,219 +1,130 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {uid}
+// Fields:
+//   - uid: string (required) - Firebase Auth UID
+//   - username: string (required) - Unique handle
+//   - displayName: string (optional) - User's name
+//   - photoURL: string (optional) - Profile picture URL
+//   - bio: string (optional) - User biography
+//   - location: string (optional) - User location
+//   - createdAt: number (required) - Creation timestamp
+//   - isOnline: boolean (optional) - Online status
+//   - lastSeen: number (optional) - Last seen timestamp
+//   - role: string (required, enum: ["user", "admin", "moderator"]) - User role
+//   - isSuspended: boolean (optional) - Suspension status
+//
+// Collection: groups
+// Document ID: {groupId}
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - handle: string (optional)
+//   - description: string (optional)
+//   - type: string (required, enum: ["public", "private", "supergroup", "broadcast"])
+//   - adminIds: array<string> (required)
+//   - memberIds: array<string> (required)
+//   - createdAt: number (required)
+//   - createdBy: string (optional)
+//   - photoURL: string (optional)
+//
+// Collection: messages
+// Document ID: {messageId}
+// Fields:
+//   - id: string (required)
+//   - chatId: string (required)
+//   - senderId: string (required)
+//   - senderName: string (required)
+//   - content: string (required)
+//   - timestamp: number (required)
+//   - type: string (required, enum: ["text", "image", "system", "file", "voice"])
+//   - imageUrl: string (optional)
+//   - fileUrl: string (optional)
+//   - fileName: string (optional)
+//   - replyTo: string (optional)
+//
+// [Other collections follow similar patterns based on firebase-blueprint.json]
+//
+// ===============================================================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: uid
-    // Fields:
-    //   - uid: string (required)
-    //   - username: string (required, unique-ish)
-    //   - displayName: string (optional)
-    //   - photoURL: string (optional)
-    //   - bio: string (optional)
-    //   - location: string (optional)
-    //   - createdAt: number (required)
-    //   - isOnline: boolean (optional)
-    //   - lastSeen: number (optional)
-    //   - role: string (required, 'user' | 'admin' | 'moderator')
-    //   - isSuspended: boolean (optional)
-    //   - blockedUids: list (optional)
-    //   - blockedByUids: list (optional)
-    //
-    // Collection: groups
-    // Document ID: groupId
-    // Fields:
-    //   - id: string (required)
-    //   - name: string (required)
-    //   - handle: string (optional)
-    //   - description: string (optional)
-    //   - type: string (required, 'public' | 'private' | 'supergroup' | 'broadcast')
-    //   - adminIds: list (required)
-    //   - memberIds: list (required)
-    //   - createdAt: number (required)
-    //   - createdBy: string (required)
-    //   - photoURL: string (optional)
-    //   - pinnedMessageId: string (optional)
-    //   - slowMode: number (optional)
-    //
-    // Collection: channels
-    // Document ID: channelId
-    // Fields:
-    //   - id: string (required)
-    //   - name: string (required)
-    //   - handle: string (optional)
-    //   - description: string (optional)
-    //   - type: string (required, 'public' | 'private')
-    //   - adminIds: list (required)
-    //   - subscriberIds: list (required)
-    //   - createdAt: number (required)
-    //   - createdBy: string (required)
-    //   - photoURL: string (optional)
-    //   - viewCount: number (optional)
-    //
-    // Collection: messages
-    // Document ID: messageId
-    // Fields:
-    //   - id: string (required)
-    //   - chatId: string (required)
-    //   - senderId: string (required)
-    //   - senderName: string (optional)
-    //   - content: string (required)
-    //   - timestamp: number (required)
-    //   - type: string (required, 'text' | 'image' | 'system' | 'file' | 'voice')
-    //   - imageUrl: string (optional)
-    //   - fileUrl: string (optional)
-    //   - fileName: string (optional)
-    //   - replyTo: string (optional)
-    //
-    // Collection: stories
-    // Document ID: storyId
-    // Fields:
-    //   - id: string (required)
-    //   - userId: string (required)
-    //   - mediaUrl: string (required)
-    //   - type: string (required, 'image' | 'video')
-    //   - createdAt: number (required)
-    //   - expiresAt: number (required)
-    //   - viewers: list (required)
-    //
-    // Collection: posts
-    // Document ID: postId
-    // Fields:
-    //   - id: string (required)
-    //   - userId: string (required)
-    //   - content: string (required)
-    //   - mediaUrls: list (optional)
-    //   - createdAt: number (required)
-    //   - likes: list (required)
-    //
-    // Collection: help_tickets
-    // Document ID: ticketId
-    // Fields:
-    //   - id: string (required)
-    //   - userId: string (required)
-    //   - title: string (required)
-    //   - category: string (required)
-    //   - description: string (required)
-    //   - status: string (required)
-    //   - createdAt: number (required)
-    //   - updatedAt: number (required)
-    //
-    // Collection: reports
-    // Document ID: reportId
-    // Fields:
-    //   - id: string (required)
-    //   - reporterId: string (required)
-    //   - targetId: string (required)
-    //   - reason: string (required)
-    //   - details: string (optional)
-    //   - status: string (required)
-    //   - createdAt: number (required)
-    //
-    // Collection: banners
-    // Document ID: bannerId
-    // Fields:
-    //   - id: string (required)
-    //   - imageUrl: string (required)
-    //   - link: string (optional)
-    //   - isActive: boolean (required)
-    //   - createdAt: number (required)
-    //
-    // ===============================================================
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
     function isAdmin() {
-      return isAuthenticated() && (
-        (request.auth.token.email == "kvinit6421@gmail.com" && request.auth.token.email_verified == true) ||
-        (request.auth.token.email == "jiovinitkumarjio@gmail.com" && request.auth.token.email_verified == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-      );
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "kvinit6421@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isModerator() {
-      return isAuthenticated() && (
-        isAdmin() ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator')
-      );
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator' || isAdmin());
     }
 
-    function isMember(chatId) {
-      return isAuthenticated() && (
-        chatId.matches("^.*" + request.auth.uid + ".*$") ||
-        (exists(/databases/$(database)/documents/groups/$(chatId)) && (
-          request.auth.uid in get(/databases/$(database)/documents/groups/$(chatId)).data.memberIds ||
-          get(/databases/$(database)/documents/groups/$(chatId)).data.type in ['public', 'supergroup', 'broadcast']
-        )) ||
-        (exists(/databases/$(database)/documents/channels/$(chatId)) && (
-          request.auth.uid in get(/databases/$(database)/documents/channels/$(chatId)).data.subscriberIds ||
-          get(/databases/$(database)/documents/channels/$(chatId)).data.type in ['public', 'broadcast']
-        ))
-      );
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
     }
 
-    function isBlockedByRecipient(data) {
-      // Only for private chats
-      return 'recipientId' in data && 
-             data.recipientId is string &&
-             exists(/databases/$(database)/documents/users/$(data.recipientId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/users/$(data.recipientId)).data.blockedUids;
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
     }
 
-    function isGroupAdmin(groupId) {
-      return isAuthenticated() && exists(/databases/$(database)/documents/groups/$(groupId)) && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminIds;
+    function isValidString(field, min, max) {
+      return request.resource.data[field] is string && 
+             request.resource.data[field].size() >= min && 
+             request.resource.data[field].size() <= max;
     }
 
-    function isChannelAdmin(channelId) {
-      return isAuthenticated() && exists(/databases/$(database)/documents/channels/$(channelId)) && request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.adminIds;
+    function isValidOptionalString(field, min, max) {
+      return !(field in request.resource.data) || 
+             (request.resource.data[field] is string && 
+              request.resource.data[field].size() >= min && 
+              request.resource.data[field].size() <= max);
+    }
+
+    function isValidUrl(field) {
+      let url = request.resource.data[field];
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidOptionalUrl(field) {
+      return !(field in request.resource.data) || isValidUrl(field);
     }
 
     // ===============================================================
-    // Validation Functions
+    // Domain Validators
     // ===============================================================
+
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'username', 'createdAt', 'role']) &&
-             data.uid is string && 
-             data.username is string && data.username.size() >= 3 && data.username.size() <= 20 &&
-             data.createdAt is number &&
+      return hasRequiredFields(['uid', 'username', 'createdAt', 'role']) &&
+             hasOnlyAllowedFields(['uid', 'username', 'displayName', 'photoURL', 'bio', 'location', 'createdAt', 'isOnline', 'lastSeen', 'role', 'isSuspended']) &&
+             data.uid == request.auth.uid &&
+             data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
              data.role in ['user', 'admin', 'moderator'] &&
-             (!('blockedUids' in data) || data.blockedUids is list) &&
-             (!('blockedByUids' in data) || data.blockedByUids is list);
-    }
-
-    function isValidGroup(data) {
-      return data.keys().hasAll(['id', 'name', 'type', 'adminIds', 'memberIds', 'createdAt', 'createdBy']) &&
-             data.id is string && data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
-             data.type in ['public', 'private', 'supergroup', 'broadcast'] &&
-             data.adminIds is list && data.memberIds is list &&
-             data.createdAt is number;
-    }
-
-    function isValidChannel(data) {
-      return data.keys().hasAll(['id', 'name', 'type', 'adminIds', 'subscriberIds', 'createdAt', 'createdBy']) &&
-             data.id is string && data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
-             data.type in ['public', 'private', 'broadcast'] &&
-             data.adminIds is list && data.subscriberIds is list &&
-             data.createdAt is number;
+             (data.role == 'user' || isAdmin()); // Only admins can set admin/moderator roles
     }
 
     function isValidMessage(data) {
-      return data.keys().hasAll(['id', 'chatId', 'senderId', 'content', 'timestamp', 'type']) &&
-             data.id is string && data.chatId is string &&
+      return hasRequiredFields(['id', 'chatId', 'senderId', 'content', 'timestamp', 'type']) &&
+             hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'senderName', 'content', 'timestamp', 'type', 'imageUrl', 'fileUrl', 'fileName', 'replyTo']) &&
              data.senderId == request.auth.uid &&
-             data.content is string && data.content.size() > 0 && data.content.size() <= 5000 &&
-             data.timestamp is number &&
+             data.content is string && data.content.size() <= 5000 &&
              data.type in ['text', 'image', 'system', 'file', 'voice'];
     }
 
@@ -221,104 +132,75 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
-    match /users/{uid} {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users collection
+    match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
-      allow update: if isOwner(uid) && isValidUser(request.resource.data) &&
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.createdAt == resource.data.createdAt &&
-                      (request.resource.data.role == resource.data.role || isAdmin());
-      allow update: if isAuthenticated() && 
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['blockedByUids']) &&
-                      request.auth.uid in request.resource.data.blockedByUids;
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(userId) && 
+                      isValidUser(request.resource.data) &&
+                      request.resource.data.role == resource.data.role; // Cannot change own role
       allow update: if isAdmin();
     }
 
+    // Groups collection
     match /groups/{groupId} {
-      allow read: if isAuthenticated() && (
-        resource.data.type in ['public', 'supergroup', 'broadcast'] ||
-        request.auth.uid in resource.data.memberIds ||
-        isAdmin()
-      );
-      allow create: if isAuthenticated() && isValidGroup(request.resource.data);
-      allow update: if isAuthenticated() && (
-        (request.auth.uid in resource.data.adminIds && isValidGroup(request.resource.data)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) &&
-         (resource.data.type == 'public' || request.auth.uid in resource.data.memberIds)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasAny(['videoChat']) && 
-         (request.auth.uid in resource.data.memberIds || resource.data.type == 'public')) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions', 'slowMode']) && request.auth.uid in resource.data.adminIds)
-      );
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
       allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
     }
 
+    // Channels collection
     match /channels/{channelId} {
-      allow read: if isAuthenticated() && (
-        resource.data.type == 'public' ||
-        request.auth.uid in resource.data.subscriberIds ||
-        isAdmin()
-      );
-      allow create: if isAuthenticated() && isValidChannel(request.resource.data);
-      allow update: if isAuthenticated() && (
-        (request.auth.uid in resource.data.adminIds && isValidChannel(request.resource.data)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['subscriberIds']) &&
-         (resource.data.type == 'public' || request.auth.uid in resource.data.subscriberIds)) ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasAny(['videoChat']) &&
-         (request.auth.uid in resource.data.subscriberIds || resource.data.type == 'public'))
-      );
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
       allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
     }
 
+    // Messages collection
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && (isMember(resource.data.chatId) || isAdmin());
-      allow create: if isAuthenticated() && 
-                      isValidMessage(request.resource.data) && 
-                      (isMember(request.resource.data.chatId) || isAdmin()) &&
-                      !isBlockedByRecipient(request.resource.data);
-      allow update: if isAuthenticated() && (
-                      (resource.data.senderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasAny(['content', 'id', 'isDeleted', 'deletedBy'])) ||
-                      (isMember(resource.data.chatId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'read') ||
-                      isAdmin()
-                    );
-      allow delete: if isAuthenticated() && (
-        resource.data.senderId == request.auth.uid ||
-        isGroupAdmin(resource.data.chatId) ||
-        isChannelAdmin(resource.data.chatId) ||
-        isAdmin()
-      );
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow update, delete: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isAdmin());
     }
 
+    // Stories collection
     match /stories/{storyId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    // Posts collection
     match /posts/{postId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        request.resource.data.userId == request.auth.uid ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-      );
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    // Help Tickets
     match /help_tickets/{ticketId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
+      allow update: if isModerator();
     }
 
+    // Reports
     match /reports/{reportId} {
       allow read: if isModerator();
       allow create: if isAuthenticated() && request.resource.data.reporterId == request.auth.uid;
       allow update: if isModerator();
     }
 
+    // Banners
     match /banners/{bannerId} {
-      allow get, list: if true;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
   }
