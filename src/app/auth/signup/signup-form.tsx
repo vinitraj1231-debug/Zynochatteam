@@ -1,164 +1,57 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, CheckCircle2, LogIn, KeyRound, RefreshCw } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { getSupabase } from '@/lib/supabase';
-import { auth, googleProvider, db, handleFirestoreError, OperationType } from '@/firebase';
-import { signInWithPopup } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { User, AtSign, ArrowRight, Shield, Globe, Lock, MessageSquare } from 'lucide-react';
+import { motion } from 'motion/react';
+import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function SignupForm() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const [email, setEmail] = useState(searchParams.get('email') || '');
-  const [otp, setOtp] = useState('');
-  const [mode, setMode] = useState<'email' | 'otp'>('email');
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendTimer, setResendTimer] = useState(0);
 
-  useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendTimer]);
-
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!email) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-        }
-      });
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-      } else {
-        setMode('otp');
-        setLoading(false);
-        setResendTimer(60);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to initialize Supabase');
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp) return;
+    if (!displayName || !username) {
+      setError('Please fill in all fields');
+      return;
+    }
     
     setLoading(true);
     setError(null);
-
+    
     try {
-      const supabase = getSupabase();
-      // For OTP codes sent via signInWithOtp, 'email' or 'magiclink' are the standard types
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email', 
-      });
+      // Sign in anonymously to get a UID
+      const userCredential = await signInAnonymously(auth);
+      const user = userCredential.user;
 
-      if (error) {
-        // Fallback to 'signup' if 'email' fails
-        const { data: secondData, error: secondError } = await supabase.auth.verifyOtp({
-          email,
-          token: otp,
-          type: 'signup',
-        });
-        
-        if (secondError) {
-          setError(secondError.message);
-          setLoading(false);
-          return;
-        }
-
-        // Create user profile in Firestore
-        if (secondData.user) {
-          try {
-            const userRef = doc(db, 'users', secondData.user.id);
-            await setDoc(userRef, {
-              uid: secondData.user.id,
-              username: email.split('@')[0],
-              displayName: email.split('@')[0],
-              email: email,
-              role: 'user',
-              createdAt: Date.now(),
-            }, { merge: true });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.WRITE, `users/${secondData.user.id}`);
-          }
-        }
-      } else {
-        // Create user profile in Firestore for 'email' type success
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          try {
-            const userRef = doc(db, 'users', user.id);
-            await setDoc(userRef, {
-              uid: user.id,
-              username: email.split('@')[0],
-              displayName: email.split('@')[0],
-              email: email,
-              role: 'user',
-              createdAt: Date.now(),
-            }, { merge: true });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
-          }
-        }
-      }
+      // Save user info to Firestore
+      const userData = {
+        uid: user.uid,
+        displayName,
+        username: username.startsWith('@') ? username : `@${username}`,
+        bio: '',
+        photoURL: '',
+        createdAt: serverTimestamp(),
+        lastSeen: serverTimestamp(),
+        role: 'user'
+      };
       
-      router.push('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    console.log('Google login initiated');
-    setLoading(true);
-    setError(null);
-    try {
-      console.log('Calling signInWithPopup...');
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log('Google login success:', result.user.email);
-      
-      // Create/Update user profile in Firestore
       try {
-        const userRef = doc(db, 'users', result.user.uid);
-        await setDoc(userRef, {
-          uid: result.user.uid,
-          username: result.user.email?.split('@')[0] || 'user',
-          displayName: result.user.displayName || result.user.email?.split('@')[0],
-          photoURL: result.user.photoURL,
-          email: result.user.email,
-          role: 'user',
-          createdAt: Date.now(),
-        }, { merge: true });
+        await setDoc(doc(db, 'users', user.uid), userData);
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${result.user.uid}`);
+        handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
       }
-
+      
       router.push('/dashboard');
     } catch (err) {
-      console.error('Google login error:', err);
-      setError(err instanceof Error ? err.message : 'Firebase Google Login failed');
+      console.error('Onboarding error:', err);
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);
     }
   };
@@ -187,141 +80,65 @@ export default function SignupForm() {
           <div className="space-y-1">
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">ZYNOCHAT</h1>
             <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">
-              {mode === 'email' ? 'Create Your Account' : 'Verify Identity'}
+              Join the Community
             </p>
           </div>
         </div>
 
-        {/* Auth Form */}
+        {/* Onboarding Form */}
         <div className="space-y-8 relative z-10">
-          {mode === 'email' ? (
-            <form 
-              onSubmit={handleSendOtp} 
-              className="space-y-6"
-            >
-              {error && (
-                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest text-center">
-                  {error}
-                </div>
-              )}
-              
+          <form onSubmit={handleJoin} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest text-center">
+                {error}
+              </div>
+            )}
+            
+            <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Email Address</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Full Name</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                    <Mail className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                    <User className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   </div>
                   <input 
-                    type="email" 
+                    type="text" 
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Enter your name"
                     className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-3 hover:bg-indigo-700 hover:translate-y-[-2px] active:translate-y-[0px] transition-all disabled:opacity-50 disabled:translate-y-0"
-              >
-                {loading ? 'Sending OTP...' : 'Send OTP Code'}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </form>
-          ) : (
-            <form 
-              onSubmit={handleVerifyOtp} 
-              className="space-y-6"
-            >
-              {error && (
-                <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest text-center">
-                  {error}
-                </div>
-              )}
-              
-              <div className="space-y-2 text-center">
-                <p className="text-xs font-bold text-slate-500">We sent a code to <span className="text-indigo-600">{email}</span></p>
-              </div>
-
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Verification Code</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Username</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                    <KeyRound className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                    <AtSign className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                   </div>
                   <input 
                     type="text" 
                     required
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="000000"
-                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-center text-2xl tracking-[0.5em] font-black text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Choose a username"
+                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
-
-              <div className="flex flex-col gap-4">
-                <button 
-                  type="submit"
-                  disabled={loading || otp.length < 6}
-                  className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-3 hover:bg-indigo-700 hover:translate-y-[-2px] active:translate-y-[0px] transition-all disabled:opacity-50 disabled:translate-y-0"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Signup'}
-                  <CheckCircle2 className="w-5 h-5" />
-                </button>
-                
-                <div className="flex items-center justify-between px-2">
-                  <button 
-                    type="button"
-                    onClick={() => setMode('email')}
-                    className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
-                  >
-                    Change Email
-                  </button>
-                  
-                  <button 
-                    type="button"
-                    disabled={resendTimer > 0 || loading}
-                    onClick={() => handleSendOtp()}
-                    className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors disabled:text-slate-300 flex items-center gap-2"
-                  >
-                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : (
-                      <>
-                        <RefreshCw className="w-3 h-3" />
-                        Resend Code
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100"></div>
             </div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest">
-              <span className="bg-white px-4 text-slate-400">Or continue with</span>
-            </div>
-          </div>
 
-          <button 
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full bg-white border border-slate-200 text-slate-700 py-5 rounded-3xl font-black uppercase tracking-widest shadow-sm flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50"
-          >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-            Google Account
-          </button>
-
-          <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Already have an account? <Link href="/auth/login" className="text-indigo-600 hover:underline">Login</Link>
-          </p>
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-3 hover:bg-indigo-700 hover:translate-y-[-2px] active:translate-y-[0px] transition-all disabled:opacity-50 disabled:translate-y-0"
+            >
+              {loading ? 'Setting up...' : 'Get Started'}
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </form>
         </div>
 
         {/* Footer Features */}

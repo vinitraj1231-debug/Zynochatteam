@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabase } from '@/lib/supabase';
-import { auth } from '@/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { LogOut, User, MessageSquare, Settings, LayoutDashboard, Bell, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { auth, db } from '@/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import Link from 'next/link';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -16,41 +17,35 @@ export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const supabase = getSupabase();
-        
-        // Check Supabase session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setUser(session.user);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch user data from Firestore
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const unsubDoc = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUser(docSnap.data());
+          } else {
+            // If doc doesn't exist in Firestore, maybe they skipped onboarding
+            router.push('/auth/signup');
+          }
           setLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.warn('Supabase not initialized or session check failed:', err);
-      }
-
-      // If no Supabase session or it failed, check Firebase
-      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-        } else {
-          router.push('/auth/login');
-        }
+        }, (err) => {
+          console.error("Error fetching user doc:", err);
+          setLoading(false);
+        });
+        return () => unsubDoc();
+      } else {
+        router.push('/auth/signup');
         setLoading(false);
-      });
-      return unsubscribe;
-    };
+      }
+    });
 
-    checkSession();
+    return () => unsubscribe();
   }, [router]);
 
   const handleLogout = async () => {
-    const supabase = getSupabase();
-    await supabase.auth.signOut();
     await signOut(auth);
-    router.push('/auth/login');
+    router.push('/auth/signup');
   };
 
   if (loading) {
@@ -97,24 +92,22 @@ export default function Dashboard() {
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
-          {[
-            { icon: LayoutDashboard, label: 'Dashboard', active: true },
-            { icon: MessageSquare, label: 'Messages' },
-            { icon: Bell, label: 'Notifications' },
-            { icon: Settings, label: 'Settings' },
-          ].map((item, i) => (
-            <button 
-              key={i}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-                item.active 
-                  ? 'bg-indigo-50 text-indigo-600' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.label}
-            </button>
-          ))}
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold bg-indigo-50 text-indigo-600 transition-all">
+            <LayoutDashboard className="w-5 h-5" />
+            Dashboard
+          </button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all">
+            <MessageSquare className="w-5 h-5" />
+            Messages
+          </button>
+          <Link href="/profile" className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all">
+            <User className="w-5 h-5" />
+            Profile
+          </Link>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all">
+            <Settings className="w-5 h-5" />
+            Settings
+          </button>
         </nav>
 
         <div className="p-4 border-t border-slate-100">
@@ -151,8 +144,8 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-3 md:gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{user?.email}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Premium User</p>
+              <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{user?.displayName}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user?.username}</p>
             </div>
             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm ring-1 ring-slate-200 flex-shrink-0">
               <User className="w-6 h-6 text-slate-400" />
@@ -163,7 +156,7 @@ export default function Dashboard() {
         {/* Dashboard Content */}
         <div className="p-4 md:p-8 space-y-6 md:space-y-8">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl md:text-2xl font-black text-slate-900">Overview</h2>
+            <h2 className="text-xl md:text-2xl font-black text-slate-900">Welcome, {user?.displayName}!</h2>
             <button className="bg-indigo-600 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold text-xs md:text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all flex-shrink-0">
               New Chat
             </button>
@@ -171,17 +164,15 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
-              { label: 'Total Messages', value: '1,284', change: '+12%', color: 'indigo' },
-              { label: 'Active Chats', value: '42', change: '+5%', color: 'purple' },
-              { label: 'Storage Used', value: '84%', change: '-2%', color: 'blue' },
+              { label: 'Total Messages', value: '0', change: '0%', color: 'indigo' },
+              { label: 'Active Chats', value: '0', change: '0%', color: 'purple' },
+              { label: 'Storage Used', value: '0%', change: '0%', color: 'blue' },
             ].map((stat, i) => (
               <div key={i} className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm space-y-3 md:space-y-4">
                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
                 <div className="flex items-end justify-between">
                   <h3 className="text-2xl md:text-3xl font-black text-slate-900">{stat.value}</h3>
-                  <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg ${
-                    stat.change.startsWith('+') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                  }`}>
+                  <span className={`text-[10px] md:text-xs font-bold px-2 py-1 rounded-lg bg-slate-50 text-slate-400`}>
                     {stat.change}
                   </span>
                 </div>
