@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, CheckCircle2, LogIn } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/lib/supabase';
 
-export default function SignupForm() {
+export default function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [email, setEmail] = useState(searchParams.get('email') || '');
@@ -14,12 +14,12 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -28,9 +28,7 @@ export default function SignupForm() {
       setError(error.message);
       setLoading(false);
     } else {
-      // Supabase usually sends a confirmation email
-      alert('Check your email for the confirmation link!');
-      router.push('/auth/login');
+      router.push('/dashboard');
     }
   };
 
@@ -58,13 +56,13 @@ export default function SignupForm() {
         </div>
         <div className="space-y-2">
           <h1 className="text-5xl font-black tracking-tighter text-charcoal">ZYNOCHAT</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.3em]">Create Your Account</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.3em]">Welcome Back</p>
         </div>
       </div>
 
       {/* Auth Form */}
       <div className="space-y-8">
-        <form onSubmit={handleSignup} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           {error && (
             <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold uppercase tracking-widest text-center">
               {error}
@@ -75,7 +73,7 @@ export default function SignupForm() {
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Email Address</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-plum-700 transition-colors" />
+                <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
               </div>
               <input 
                 type="email" 
@@ -83,7 +81,7 @@ export default function SignupForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full bg-gray-100 border-none rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-charcoal focus:ring-4 focus:ring-plum-500/20 focus:bg-white transition-all shadow-inner placeholder:text-gray-400"
+                className="w-full bg-gray-100 border-none rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-charcoal focus:ring-4 focus:ring-indigo-500/20 focus:bg-white transition-all shadow-inner placeholder:text-gray-400"
               />
             </div>
           </div>
@@ -92,7 +90,7 @@ export default function SignupForm() {
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Password</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-plum-700 transition-colors" />
+                <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
               </div>
               <input 
                 type="password" 
@@ -100,7 +98,7 @@ export default function SignupForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-gray-100 border-none rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-charcoal focus:ring-4 focus:ring-plum-500/20 focus:bg-white transition-all shadow-inner placeholder:text-gray-400"
+                className="w-full bg-gray-100 border-none rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-charcoal focus:ring-4 focus:ring-indigo-500/20 focus:bg-white transition-all shadow-inner placeholder:text-gray-400"
               />
             </div>
           </div>
@@ -108,10 +106,10 @@ export default function SignupForm() {
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-plum-700 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-plum-700/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+            className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
           >
-            {loading ? 'Creating Account...' : 'Get Started'}
-            <ArrowRight className="w-5 h-5" />
+            {loading ? 'Logging in...' : 'Login Now'}
+            <LogIn className="w-5 h-5" />
           </button>
         </form>
 
@@ -133,7 +131,7 @@ export default function SignupForm() {
         </button>
 
         <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
-          Already have an account? <a href="/auth/login" className="text-plum-700 hover:underline">Login</a>
+          Don't have an account? <a href="/auth/signup" className="text-indigo-600 hover:underline">Sign up</a>
         </p>
       </div>
 
