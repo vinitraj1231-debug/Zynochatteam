@@ -46,12 +46,7 @@ export default function SignupForm() {
       <div className="flex flex-col items-center text-center space-y-6">
         <div className="relative">
           <div className="w-24 h-24 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-plum-700/10 ring-4 ring-white/20 animate-float overflow-hidden">
-            <img 
-              src="https://ais-pre-jf6oraeqfibrthrnginvim-354886298737.asia-east1.run.app/api/attachments/8pPLC35JiGehVSMet5YkBf1VFDM2/zyno_logo.png" 
-              alt="Zyno Logo" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            <MessageSquare className="w-12 h-12 text-plum-700" />
           </div>
           <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-xl ring-2 ring-gray-50">
             <Shield className="w-6 h-6 text-plum-700" />
