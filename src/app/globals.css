@@ -1,18 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  --charcoal: #1a1a1a;
-  --plum-700: #6b21a8;
+  --charcoal: #0f172a;
+  --plum-700: #4f46e5;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.2);
 }
 
 body {
-  background-color: white;
+  background: radial-gradient(circle at top left, #f8fafc, #f1f5f9);
   color: var(--charcoal);
+  min-height: 100vh;
 }
 
 @layer utilities {
   .animate-float {
     animation: float 6s ease-in-out infinite;
+  }
+  
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
   }
 }
 
