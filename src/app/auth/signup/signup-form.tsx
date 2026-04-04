@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, CheckCircle2, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export default function SignupForm() {
   const searchParams = useSearchParams();
@@ -19,29 +19,40 @@ export default function SignupForm() {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      } else {
+        // Supabase usually sends a confirmation email
+        alert('Check your email for the confirmation link!');
+        router.push('/auth/login');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to initialize Supabase');
       setLoading(false);
-    } else {
-      // Supabase usually sends a confirmation email
-      alert('Check your email for the confirmation link!');
-      router.push('/auth/login');
     }
   };
 
   const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) setError(error.message);
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) setError(error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to initialize Supabase');
+    }
   };
 
   return (
