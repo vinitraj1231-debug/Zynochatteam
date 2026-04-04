@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+:root {
+  --charcoal: #1a1a1a;
+  --plum-700: #6b21a8;
+}
+
+body {
+  background-color: white;
+  color: var(--charcoal);
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
