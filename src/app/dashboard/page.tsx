@@ -6,36 +6,44 @@ import { getSupabase } from '@/lib/supabase';
 import { auth } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { LogOut, User, MessageSquare, Settings, LayoutDashboard, Bell, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const supabase = getSupabase();
-    
-    // Check Supabase session
-    const checkSupabaseSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        setLoading(false);
-      } else {
-        // If no Supabase session, check Firebase
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-          if (firebaseUser) {
-            setUser(firebaseUser);
-          } else {
-            router.push('/auth/login');
-          }
+    const checkSession = async () => {
+      try {
+        const supabase = getSupabase();
+        
+        // Check Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setUser(session.user);
           setLoading(false);
-        });
-        return unsubscribe;
+          return;
+        }
+      } catch (err) {
+        console.warn('Supabase not initialized or session check failed:', err);
       }
+
+      // If no Supabase session or it failed, check Firebase
+      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+        } else {
+          router.push('/auth/login');
+        }
+        setLoading(false);
+      });
+      return unsubscribe;
     };
 
-    checkSupabaseSession();
+    checkSession();
   }, [router]);
 
   const handleLogout = async () => {
@@ -55,15 +63,37 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col">
-        <div className="p-6 border-b border-slate-100">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-auto",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <MessageSquare className="w-6 h-6 text-white" />
             </div>
             <span className="font-black tracking-tight text-slate-900">ZYNOCHAT</span>
           </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-2 text-slate-400 hover:text-slate-600"
+          >
+            <LogOut className="w-5 h-5 rotate-180" />
+          </button>
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
@@ -103,7 +133,10 @@ export default function Dashboard() {
         {/* Header */}
         <header className="h-20 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-4 flex-1">
-            <button className="lg:hidden p-2 text-slate-600">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+            >
               <LayoutDashboard className="w-6 h-6" />
             </button>
             <div className="relative w-full max-w-md hidden sm:block">

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, CheckCircle2, LogIn, KeyRound, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabase } from '@/lib/supabase';
@@ -216,7 +217,7 @@ export default function SignupForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-300"
+                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -258,7 +259,7 @@ export default function SignupForm() {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder="000000"
-                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-center text-2xl tracking-[0.5em] font-black text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-center text-2xl tracking-[0.5em] font-black text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -319,7 +320,7 @@ export default function SignupForm() {
           </button>
 
           <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Already have an account? <a href="/auth/login" className="text-indigo-600 hover:underline">Login</a>
+            Already have an account? <Link href="/auth/login" className="text-indigo-600 hover:underline">Login</Link>
           </p>
         </div>
 

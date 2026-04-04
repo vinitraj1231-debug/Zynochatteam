@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Mail, Lock, ArrowRight, Shield, Globe, MessageSquare, LogIn, KeyRound, CheckCircle2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getSupabase } from '@/lib/supabase';
@@ -213,7 +214,7 @@ export default function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-300"
+                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -255,7 +256,7 @@ export default function LoginForm() {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder="000000"
-                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-center text-2xl tracking-[0.5em] font-black text-slate-700 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 text-center text-2xl tracking-[0.5em] font-black text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-300 transition-all shadow-sm placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -316,7 +317,7 @@ export default function LoginForm() {
           </button>
 
           <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Don't have an account? <a href="/auth/signup" className="text-indigo-600 hover:underline">Sign up</a>
+            Don't have an account? <Link href="/auth/signup" className="text-indigo-600 hover:underline">Sign up</Link>
           </p>
         </div>
 
