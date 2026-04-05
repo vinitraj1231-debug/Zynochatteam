@@ -85,6 +85,10 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(fields);
     }
 
+    function isUnchanged(field) {
+      return !(field in resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
     function isValidString(field, min, max) {
       return request.resource.data[field] is string && 
              request.resource.data[field].size() >= min && 
@@ -100,7 +104,7 @@ service cloud.firestore {
 
     function isValidUrl(field) {
       let url = request.resource.data[field];
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+      return url is string && url.size() <= 2048 && (url.matches("^https://.*") || url.matches("^http://.*"));
     }
 
     function isValidOptionalUrl(field) {
@@ -116,16 +120,124 @@ service cloud.firestore {
              hasOnlyAllowedFields(['uid', 'username', 'displayName', 'photoURL', 'bio', 'location', 'createdAt', 'isOnline', 'lastSeen', 'role', 'isSuspended']) &&
              data.uid == request.auth.uid &&
              data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
+             data.username.matches("^[a-zA-Z0-9_]+$") &&
+             isValidOptionalString('displayName', 1, 50) &&
+             isValidOptionalUrl('photoURL') &&
+             isValidOptionalString('bio', 0, 500) &&
+             isValidOptionalString('location', 0, 100) &&
+             data.createdAt is number &&
+             isUnchanged('createdAt') &&
+             isUnchanged('uid') &&
              data.role in ['user', 'admin', 'moderator'] &&
              (data.role == 'user' || isAdmin()); // Only admins can set admin/moderator roles
     }
 
+    function isValidGroup(data) {
+      return hasRequiredFields(['id', 'name', 'type', 'adminIds', 'memberIds', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'memberIds', 'bannedUserIds', 'createdAt', 'createdBy', 'photoURL', 'pinnedMessageId', 'slowMode', 'lastMessage', 'updatedAt']) &&
+             data.id is string &&
+             isUnchanged('id') &&
+             isUnchanged('createdAt') &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 50 &&
+             isValidOptionalString('handle', 3, 30) &&
+             isValidOptionalString('description', 0, 1000) &&
+             data.type in ['public', 'private', 'supergroup', 'broadcast'] &&
+             data.adminIds is list && data.adminIds.size() > 0 &&
+             data.memberIds is list && data.memberIds.size() > 0 &&
+             data.createdAt is number;
+    }
+
+    function isValidChannel(data) {
+      return hasRequiredFields(['id', 'name', 'type', 'adminIds', 'subscriberIds', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'subscriberIds', 'createdAt', 'createdBy', 'photoURL', 'viewCount']) &&
+             data.id is string &&
+             isUnchanged('id') &&
+             isUnchanged('createdAt') &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 50 &&
+             isValidOptionalString('handle', 3, 30) &&
+             isValidOptionalString('description', 0, 1000) &&
+             data.type in ['public', 'private'] &&
+             data.adminIds is list && data.adminIds.size() > 0 &&
+             data.subscriberIds is list &&
+             data.createdAt is number;
+    }
+
     function isValidMessage(data) {
       return hasRequiredFields(['id', 'chatId', 'senderId', 'content', 'timestamp', 'type']) &&
-             hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'senderName', 'content', 'timestamp', 'type', 'imageUrl', 'fileUrl', 'fileName', 'replyTo']) &&
+             hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'senderName', 'content', 'timestamp', 'type', 'imageUrl', 'fileUrl', 'fileName', 'replyTo', 'status']) &&
              data.senderId == request.auth.uid &&
+             isUnchanged('id') &&
+             isUnchanged('chatId') &&
+             isUnchanged('senderId') &&
+             isUnchanged('timestamp') &&
              data.content is string && data.content.size() <= 5000 &&
-             data.type in ['text', 'image', 'system', 'file', 'voice'];
+             data.type in ['text', 'image', 'system', 'file', 'voice'] &&
+             isValidOptionalUrl('imageUrl') &&
+             isValidOptionalUrl('fileUrl') &&
+             isValidOptionalString('fileName', 1, 255);
+    }
+
+    function isValidConversation(data) {
+      return hasRequiredFields(['id', 'participantIds', 'updatedAt']) &&
+             hasOnlyAllowedFields(['id', 'participantIds', 'lastMessage', 'lastMessageTimestamp', 'unreadCounts', 'updatedAt']) &&
+             data.participantIds is list && data.participantIds.size() == 2 &&
+             request.auth.uid in data.participantIds &&
+             isUnchanged('id') &&
+             isUnchanged('participantIds') &&
+             data.updatedAt is number;
+    }
+
+    function isValidStory(data) {
+      return hasRequiredFields(['id', 'userId', 'mediaUrl', 'type', 'createdAt', 'expiresAt']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'mediaUrl', 'type', 'createdAt', 'expiresAt', 'viewers']) &&
+             data.userId == request.auth.uid &&
+             isUnchanged('id') &&
+             isUnchanged('userId') &&
+             isUnchanged('createdAt') &&
+             isValidUrl('mediaUrl') &&
+             data.type in ['image', 'video'] &&
+             data.createdAt is number &&
+             data.expiresAt is number &&
+             data.expiresAt > data.createdAt;
+    }
+
+    function isValidPost(data) {
+      return hasRequiredFields(['id', 'userId', 'content', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'content', 'mediaUrls', 'createdAt', 'likes']) &&
+             data.userId == request.auth.uid &&
+             isUnchanged('id') &&
+             isUnchanged('userId') &&
+             isUnchanged('createdAt') &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.createdAt is number;
+    }
+
+    function isValidHelpTicket(data) {
+      return hasRequiredFields(['id', 'userId', 'title', 'category', 'description', 'status', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'title', 'category', 'description', 'status', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             isUnchanged('id') &&
+             isUnchanged('userId') &&
+             isUnchanged('createdAt') &&
+             data.title is string && data.title.size() >= 5 && data.title.size() <= 100 &&
+             data.category in ["login", "chat", "payment", "report", "account", "other"] &&
+             data.description is string && data.description.size() >= 10 && data.description.size() <= 2000 &&
+             data.status in ["open", "pending", "resolved"] &&
+             data.createdAt is number;
+    }
+
+    function isValidReport(data) {
+      return hasRequiredFields(['id', 'reporterId', 'targetId', 'reason', 'status', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'reporterId', 'targetId', 'reason', 'details', 'status', 'createdAt']) &&
+             data.reporterId == request.auth.uid &&
+             isUnchanged('id') &&
+             isUnchanged('reporterId') &&
+             isUnchanged('targetId') &&
+             isUnchanged('createdAt') &&
+             data.reason in ["spam", "abuse", "impersonation", "scam", "inappropriate", "other"] &&
+             isValidOptionalString('details', 0, 1000) &&
+             data.status in ["pending", "reviewed", "action_taken"] &&
+             data.createdAt is number;
     }
 
     // ===============================================================
@@ -160,8 +272,8 @@ service cloud.firestore {
       }
 
       allow read: if isAuthenticated() && !isBanned();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && !isBanned() && (
+      allow create: if isAuthenticated() && isValidGroup(request.resource.data);
+      allow update: if isAuthenticated() && !isBanned() && isValidGroup(request.resource.data) && (
         // Admin can do anything
         isGroupAdmin() ||
         // Users can join/leave
@@ -179,8 +291,8 @@ service cloud.firestore {
     // Channels collection
     match /channels/{channelId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
+      allow create: if isAuthenticated() && isValidChannel(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin()) && isValidChannel(request.resource.data);
       allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
     }
 
@@ -188,43 +300,45 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidMessage(request.resource.data);
-      allow update, delete: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isAdmin()) && isValidMessage(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isAdmin());
     }
 
     // Conversations collection
     match /conversations/{conversationId} {
       allow read: if isAuthenticated() && (request.auth.uid in resource.data.participantIds || isAdmin());
-      allow create: if isAuthenticated() && (request.auth.uid in request.resource.data.participantIds);
-      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participantIds || isAdmin());
+      allow create: if isAuthenticated() && isValidConversation(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participantIds || isAdmin()) && isValidConversation(request.resource.data);
       allow delete: if isAdmin();
     }
 
     // Stories collection
     match /stories/{storyId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidStory(request.resource.data);
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Posts collection
     match /posts/{postId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidPost(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidPost(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Help Tickets
     match /help_tickets/{ticketId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isModerator();
+      allow create: if isAuthenticated() && isValidHelpTicket(request.resource.data);
+      allow update: if isModerator() && isValidHelpTicket(request.resource.data);
     }
 
     // Reports
     match /reports/{reportId} {
       allow read: if isModerator();
-      allow create: if isAuthenticated() && request.resource.data.reporterId == request.auth.uid;
-      allow update: if isModerator();
+      allow create: if isAuthenticated() && isValidReport(request.resource.data);
+      allow update: if isModerator() && isValidReport(request.resource.data);
     }
 
     // Banners

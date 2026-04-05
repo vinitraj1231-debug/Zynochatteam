@@ -5,6 +5,7 @@ import { X, Users, Camera, Loader2, Globe, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -156,8 +157,4 @@ export default function CreateGroupModal({ isOpen, onClose }: CreateGroupModalPr
       )}
     </AnimatePresence>
   );
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
 }

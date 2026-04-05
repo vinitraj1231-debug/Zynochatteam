@@ -41,21 +41,21 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ totalMessages: 0, activeChats: 0 });
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) return;
 
     // Fetch active chats count
     const chatsQuery = query(
       collection(db, 'conversations'),
-      where('participantIds', 'array-contains', auth.currentUser.uid)
+      where('participantIds', 'array-contains', user.uid)
     );
     const unsubChats = onSnapshot(chatsQuery, (snap) => {
       setStats(prev => ({ ...prev, activeChats: snap.size }));
     });
 
-    // Fetch total messages count (this might be expensive for many messages, but okay for now)
+    // Fetch total messages count
     const messagesQuery = query(
       collection(db, 'messages'),
-      where('senderId', '==', auth.currentUser.uid)
+      where('senderId', '==', user.uid)
     );
     const unsubMessages = onSnapshot(messagesQuery, (snap) => {
       setStats(prev => ({ ...prev, totalMessages: snap.size }));
@@ -65,7 +65,7 @@ export default function Dashboard() {
       unsubChats();
       unsubMessages();
     };
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
     let unsubDoc: (() => void) | null = null;

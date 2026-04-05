@@ -72,6 +72,8 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
   useEffect(() => {
     if (!chatId || !auth.currentUser) return;
 
+    let unsub: (() => void) | null = null;
+
     const fetchDetails = async () => {
       try {
         // Try private conversation first
@@ -80,36 +82,45 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
         
         if (convSnap.exists()) {
           setChatType('private');
-          const data = convSnap.data();
-          const otherId = data.participantIds.find((id: string) => id !== auth.currentUser?.uid);
-          if (otherId) {
-            const userSnap = await getDoc(doc(db, 'users', otherId));
-            if (userSnap.exists()) {
-              setChatData(userSnap.data());
+          unsub = onSnapshot(convRef, async (snap) => {
+            if (snap.exists()) {
+              const data = snap.data();
+              const otherId = data.participantIds.find((id: string) => id !== auth.currentUser?.uid);
+              if (otherId) {
+                const userSnap = await getDoc(doc(db, 'users', otherId));
+                if (userSnap.exists()) {
+                  setChatData(userSnap.data());
+                }
+              }
+              // Clear unread
+              if (data.unreadCounts?.[auth.currentUser?.uid || ''] > 0) {
+                const newUnread = { ...data.unreadCounts };
+                newUnread[auth.currentUser?.uid || ''] = 0;
+                await updateDoc(convRef, { unreadCounts: newUnread });
+              }
             }
-          }
-          // Clear unread
-          if (data.unreadCounts?.[auth.currentUser.uid] > 0) {
-            const newUnread = { ...data.unreadCounts };
-            newUnread[auth.currentUser.uid] = 0;
-            await updateDoc(convRef, { unreadCounts: newUnread });
-          }
+          });
         } else {
           // Try group
           const groupRef = doc(db, 'groups', chatId);
           const groupSnap = await getDoc(groupRef);
           if (groupSnap.exists()) {
             setChatType('group');
-            setChatData(groupSnap.data());
-            
-            // Fetch members
-            const memberIds = groupSnap.data().memberIds || [];
-            const members = [];
-            for (const uid of memberIds) {
-              const uSnap = await getDoc(doc(db, 'users', uid));
-              if (uSnap.exists()) members.push(uSnap.data());
-            }
-            setGroupMembers(members);
+            unsub = onSnapshot(groupRef, async (snap) => {
+              if (snap.exists()) {
+                const gData = snap.data();
+                setChatData(gData);
+                
+                // Fetch members
+                const memberIds = gData.memberIds || [];
+                const members = [];
+                for (const uid of memberIds) {
+                  const uSnap = await getDoc(doc(db, 'users', uid));
+                  if (uSnap.exists()) members.push(uSnap.data());
+                }
+                setGroupMembers(members);
+              }
+            });
           }
         }
       } catch (err) {
@@ -120,6 +131,9 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     };
 
     fetchDetails();
+    return () => {
+      if (unsub) unsub();
+    };
   }, [chatId]);
 
   // Listen for messages
