@@ -1,9 +1,12 @@
 "use client";
 
-import React from 'react';
-import { Search, Plus, MoreVertical, MessageSquare, Users, Globe, Check, CheckCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, MoreVertical, MessageSquare, Users, Globe, Check, CheckCheck, User as UserIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { db, auth } from '@/firebase';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import NewChatModal from './NewChatModal';
 
 interface ChatItem {
   id: string;
@@ -14,6 +17,7 @@ interface ChatItem {
   photoURL?: string;
   type: 'private' | 'group' | 'channel';
   status?: 'online' | 'offline' | 'away';
+  participantId?: string;
 }
 
 interface ChatListProps {
@@ -23,21 +27,95 @@ interface ChatListProps {
 }
 
 export default function ChatList({ type, onChatSelect, activeChatId }: ChatListProps) {
-  // Mock data for now
-  const mockChats: ChatItem[] = [
-    { id: '1', name: 'Alex Rivera', lastMessage: 'Hey, how is the project going?', timestamp: '10:42 AM', unreadCount: 2, type: 'private', status: 'online' },
-    { id: '2', name: 'Zyno Dev Team', lastMessage: 'New update pushed to production.', timestamp: '9:15 AM', unreadCount: 0, type: 'group' },
-    { id: '3', name: 'Zyno Announcements', lastMessage: 'Welcome to the new chat experience!', timestamp: 'Yesterday', unreadCount: 0, type: 'channel' },
-    { id: '4', name: 'Sarah Chen', lastMessage: 'Let\'s meet tomorrow at 10.', timestamp: 'Yesterday', unreadCount: 5, type: 'private', status: 'away' },
-    { id: '5', name: 'Design System', lastMessage: 'Updated the glassmorphism components.', timestamp: 'Mon', unreadCount: 0, type: 'group' },
-  ];
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
 
-  const filteredChats = mockChats.filter(chat => {
-    if (type === 'chats') return chat.type === 'private';
-    if (type === 'groups') return chat.type === 'group';
-    if (type === 'channels') return chat.type === 'channel';
-    return true;
-  });
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    let q;
+    if (type === 'chats') {
+      q = query(
+        collection(db, 'conversations'),
+        where('participantIds', 'array-contains', auth.currentUser.uid),
+        orderBy('updatedAt', 'desc')
+      );
+    } else if (type === 'groups') {
+      q = query(
+        collection(db, 'groups'),
+        where('memberIds', 'array-contains', auth.currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, 'channels'),
+        orderBy('createdAt', 'desc')
+      );
+    }
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const chatData: ChatItem[] = [];
+      
+      for (const chatDoc of snapshot.docs) {
+        const data = chatDoc.data();
+        
+        if (type === 'chats') {
+          const otherParticipantId = data.participantIds.find((id: string) => id !== auth.currentUser?.uid);
+          
+          // Fetch other user's profile
+          let name = 'User';
+          let photoURL = '';
+          let status: any = 'offline';
+          
+          if (otherParticipantId) {
+            const userSnap = await getDoc(doc(db, 'users', otherParticipantId));
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              name = userData.displayName || userData.username || 'User';
+              photoURL = userData.photoURL || '';
+              status = userData.isOnline ? 'online' : 'offline';
+            }
+          }
+
+          chatData.push({
+            id: chatDoc.id,
+            name,
+            lastMessage: data.lastMessage || 'No messages yet',
+            timestamp: data.updatedAt?.toDate ? data.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+            unreadCount: data.unreadCounts?.[auth.currentUser?.uid || ''] || 0,
+            photoURL,
+            type: 'private',
+            status,
+            participantId: otherParticipantId
+          });
+        } else {
+          chatData.push({
+            id: chatDoc.id,
+            name: data.name,
+            lastMessage: data.description || 'Welcome!',
+            timestamp: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString() : 'New',
+            unreadCount: 0,
+            photoURL: data.photoURL || '',
+            type: type === 'groups' ? 'group' : 'channel'
+          });
+        }
+      }
+      
+      setChats(chatData);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching chats:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [type]);
+
+  const filteredChats = chats.filter(chat => 
+    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-slate-100 w-full lg:w-96">
@@ -47,9 +125,14 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest">
             {type === 'chats' ? 'Messages' : type === 'groups' ? 'Groups' : 'Channels'}
           </h2>
-          <button className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all">
-            <Plus className="w-5 h-5" />
-          </button>
+          {type === 'chats' && (
+            <button 
+              onClick={() => setIsNewChatOpen(true)}
+              className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
         </div>
         
         <div className="relative group">
@@ -138,9 +221,26 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
               <p className="font-black text-slate-900 uppercase tracking-widest text-xs">No {type} found</p>
               <p className="text-xs font-bold text-slate-400">Start a new conversation to see it here.</p>
             </div>
+            {type === 'chats' && (
+              <button 
+                onClick={() => setIsNewChatOpen(true)}
+                className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+              >
+                Start Chatting
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      <NewChatModal 
+        isOpen={isNewChatOpen} 
+        onClose={() => setIsNewChatOpen(false)} 
+        onChatCreated={(id) => {
+          onChatSelect(id);
+          setIsNewChatOpen(false);
+        }}
+      />
     </div>
   );
 }

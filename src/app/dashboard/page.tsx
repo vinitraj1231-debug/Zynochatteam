@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import Link from 'next/link';
 
 // Chat Components
@@ -38,12 +38,41 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('chats');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [stats, setStats] = useState({ totalMessages: 0, activeChats: 0 });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    if (!auth.currentUser) return;
+
+    // Fetch active chats count
+    const chatsQuery = query(
+      collection(db, 'conversations'),
+      where('participantIds', 'array-contains', auth.currentUser.uid)
+    );
+    const unsubChats = onSnapshot(chatsQuery, (snap) => {
+      setStats(prev => ({ ...prev, activeChats: snap.size }));
+    });
+
+    // Fetch total messages count (this might be expensive for many messages, but okay for now)
+    const messagesQuery = query(
+      collection(db, 'messages'),
+      where('senderId', '==', auth.currentUser.uid)
+    );
+    const unsubMessages = onSnapshot(messagesQuery, (snap) => {
+      setStats(prev => ({ ...prev, totalMessages: snap.size }));
+    });
+
+    return () => {
+      unsubChats();
+      unsubMessages();
+    };
+  }, []);
+
+  useEffect(() => {
+    let unsubDoc: (() => void) | null = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const unsubDoc = onSnapshot(userRef, (docSnap) => {
+        unsubDoc = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             setUser(docSnap.data());
           } else {
@@ -54,14 +83,20 @@ export default function Dashboard() {
           console.error("Error fetching user doc:", err);
           setLoading(false);
         });
-        return () => unsubDoc();
       } else {
+        if (unsubDoc) {
+          unsubDoc();
+          unsubDoc = null;
+        }
         router.push('/auth/signup');
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubDoc) unsubDoc();
+    };
   }, [router]);
 
   const handleLogout = async () => {
@@ -205,18 +240,14 @@ export default function Dashboard() {
                   </div>
                   
                   <div className="space-y-4 pt-4 border-t border-slate-50">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="text-center p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-lg font-black text-slate-900">2.4k</p>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Followers</p>
+                        <p className="text-lg font-black text-slate-900">{stats.totalMessages}</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Messages Sent</p>
                       </div>
                       <div className="text-center p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-lg font-black text-slate-900">842</p>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Following</p>
-                      </div>
-                      <div className="text-center p-4 bg-slate-50 rounded-2xl">
-                        <p className="text-lg font-black text-slate-900">124</p>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Posts</p>
+                        <p className="text-lg font-black text-slate-900">{stats.activeChats}</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Chats</p>
                       </div>
                     </div>
                   </div>

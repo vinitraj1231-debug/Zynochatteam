@@ -31,7 +31,8 @@ import {
   onSnapshot, 
   serverTimestamp,
   doc,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 
 interface Message {
@@ -56,15 +57,40 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Mock chat user for now (in real app, fetch from Firestore based on chatId)
+  // Fetch chat details (recipient profile)
   useEffect(() => {
-    setChatUser({
-      displayName: 'Alex Rivera',
-      username: '@alex_zyno',
-      status: 'online',
-      photoURL: null
-    });
-    setLoading(false);
+    if (!chatId || !auth.currentUser) return;
+
+    const fetchChatDetails = async () => {
+      try {
+        const convRef = doc(db, 'conversations', chatId);
+        const convSnap = await getDoc(convRef);
+        if (convSnap.exists()) {
+          const convData = convSnap.data();
+          const otherId = convData.participantIds.find((id: string) => id !== auth.currentUser?.uid);
+          
+          if (otherId) {
+            const userSnap = await getDoc(doc(db, 'users', otherId));
+            if (userSnap.exists()) {
+              setChatUser(userSnap.data());
+            }
+          }
+
+          // Clear unread count for current user
+          if (convData.unreadCounts?.[auth.currentUser.uid] > 0) {
+            const newUnreadCounts = { ...convData.unreadCounts };
+            newUnreadCounts[auth.currentUser.uid] = 0;
+            await updateDoc(convRef, { unreadCounts: newUnreadCounts });
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching chat details:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChatDetails();
   }, [chatId]);
 
   // Listen for messages
@@ -106,6 +132,7 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     setNewMessage('');
 
     try {
+      // Add message
       await addDoc(collection(db, 'messages'), {
         chatId,
         senderId: auth.currentUser.uid,
@@ -115,6 +142,26 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
         type: 'text',
         status: 'sent'
       });
+
+      // Update conversation metadata
+      const convRef = doc(db, 'conversations', chatId);
+      const convSnap = await getDoc(convRef);
+      if (convSnap.exists()) {
+        const convData = convSnap.data();
+        const otherId = convData.participantIds.find((id: string) => id !== auth.currentUser?.uid);
+        
+        const unreadCounts = convData.unreadCounts || {};
+        if (otherId) {
+          unreadCounts[otherId] = (unreadCounts[otherId] || 0) + 1;
+        }
+
+        await updateDoc(convRef, {
+          lastMessage: messageContent,
+          updatedAt: serverTimestamp(),
+          lastMessageTimestamp: serverTimestamp(),
+          unreadCounts
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'messages');
     }

@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore';
 import Link from 'next/link';
 
 export default function ProfilePage() {
@@ -42,12 +42,41 @@ export default function ProfilePage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [stats, setStats] = useState({ totalMessages: 0, activeChats: 0 });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    if (!auth.currentUser) return;
+
+    // Fetch active chats count
+    const chatsQuery = query(
+      collection(db, 'conversations'),
+      where('participantIds', 'array-contains', auth.currentUser.uid)
+    );
+    const unsubChats = onSnapshot(chatsQuery, (snap) => {
+      setStats(prev => ({ ...prev, activeChats: snap.size }));
+    });
+
+    // Fetch total messages count
+    const messagesQuery = query(
+      collection(db, 'messages'),
+      where('senderId', '==', auth.currentUser.uid)
+    );
+    const unsubMessages = onSnapshot(messagesQuery, (snap) => {
+      setStats(prev => ({ ...prev, totalMessages: snap.size }));
+    });
+
+    return () => {
+      unsubChats();
+      unsubMessages();
+    };
+  }, []);
+
+  useEffect(() => {
+    let unsubDoc: (() => void) | null = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const unsubDoc = onSnapshot(userRef, (docSnap) => {
+        unsubDoc = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setUser(data);
@@ -65,14 +94,20 @@ export default function ProfilePage() {
           console.error("Error fetching user doc:", err);
           setLoading(false);
         });
-        return () => unsubDoc();
       } else {
+        if (unsubDoc) {
+          unsubDoc();
+          unsubDoc = null;
+        }
         router.push('/auth/signup');
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubDoc) unsubDoc();
+    };
   }, [router]);
 
   const handleLogout = async () => {
@@ -113,22 +148,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  // Mock data for posts and stories
-  const mockPosts = [
-    { id: 1, image: 'https://picsum.photos/seed/post1/600/600', likes: 124, comments: 12 },
-    { id: 2, image: 'https://picsum.photos/seed/post2/600/600', likes: 89, comments: 5 },
-    { id: 3, image: 'https://picsum.photos/seed/post3/600/600', likes: 256, comments: 42 },
-    { id: 4, image: 'https://picsum.photos/seed/post4/600/600', likes: 167, comments: 18 },
-    { id: 5, image: 'https://picsum.photos/seed/post5/600/600', likes: 432, comments: 56 },
-    { id: 6, image: 'https://picsum.photos/seed/post6/600/600', likes: 95, comments: 8 },
-  ];
-
-  const mockStories = [
-    { id: 1, thumbnail: 'https://picsum.photos/seed/story1/300/500', views: '1.2k' },
-    { id: 2, thumbnail: 'https://picsum.photos/seed/story2/300/500', views: '850' },
-    { id: 3, thumbnail: 'https://picsum.photos/seed/story3/300/500', views: '2.4k' },
-  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -277,16 +296,12 @@ export default function ProfilePage() {
 
                 <div className="flex items-center gap-8 border-t border-slate-50 pt-6">
                   <div className="text-center md:text-left">
-                    <p className="text-xl font-black text-slate-900">2.4k</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Followers</p>
+                    <p className="text-xl font-black text-slate-900">{stats.totalMessages}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Messages Sent</p>
                   </div>
                   <div className="text-center md:text-left">
-                    <p className="text-xl font-black text-slate-900">842</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Following</p>
-                  </div>
-                  <div className="text-center md:text-left">
-                    <p className="text-xl font-black text-slate-900">{mockPosts.length}</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Posts</p>
+                    <p className="text-xl font-black text-slate-900">{stats.activeChats}</p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Chats</p>
                   </div>
                 </div>
               </div>
@@ -329,42 +344,17 @@ export default function ProfilePage() {
             </div>
 
             {/* Grid Content */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {activeTab === 'posts' ? (
-                mockPosts.map((post) => (
-                  <motion.div 
-                    key={post.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="aspect-square rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative group cursor-pointer"
-                  >
-                    <img src={post.image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-indigo-600/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6 text-white">
-                      <div className="flex items-center gap-2 font-bold">
-                        <Check className="w-5 h-5" /> {post.likes}
-                      </div>
-                      <div className="flex items-center gap-2 font-bold">
-                        <MessageSquare className="w-5 h-5" /> {post.comments}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                mockStories.map((story) => (
-                  <motion.div 
-                    key={story.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="aspect-[3/5] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative group cursor-pointer"
-                  >
-                    <img src={story.thumbnail} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white">
-                      <Play className="w-10 h-10 mb-2" />
-                      <span className="text-sm font-bold">{story.views} views</span>
-                    </div>
-                  </motion.div>
-                ))
-              )}
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 p-12 text-center space-y-4 shadow-sm">
+              <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto">
+                {activeTab === 'posts' ? <Grid className="w-10 h-10 text-slate-200" /> : <Play className="w-10 h-10 text-slate-200" />}
+              </div>
+              <div className="space-y-1">
+                <p className="font-black text-slate-900 uppercase tracking-widest text-xs">No {activeTab} yet</p>
+                <p className="text-xs font-bold text-slate-400">Share your first {activeTab === 'posts' ? 'post' : 'story'} with the world!</p>
+              </div>
+              <button className="mt-4 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10">
+                Create {activeTab === 'posts' ? 'Post' : 'Story'}
+              </button>
             </div>
           </div>
         </div>

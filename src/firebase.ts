@@ -25,7 +25,7 @@ const app = initializeApp(firebaseConfig);
 
 // Use auto-detect for long polling which is often more stable than forcing it
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
 
 export const auth = getAuth(app);

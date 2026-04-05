@@ -77,6 +77,20 @@
       },
       "required": ["id", "chatId", "senderId", "content", "timestamp", "type"]
     },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Metadata for a private chat between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participantIds": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageTimestamp": { "type": "number" },
+        "unreadCounts": { "type": "object" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "participantIds", "updatedAt"]
+    },
     "Story": {
       "title": "Story",
       "description": "Temporary user story",
@@ -167,6 +181,10 @@
     "/messages/{messageId}": {
       "schema": "Message",
       "description": "All messages"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Private chat metadata"
     },
     "/stories/{storyId}": {
       "schema": "Story",
