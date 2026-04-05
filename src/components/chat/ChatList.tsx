@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { db, auth } from '@/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import NewChatModal from './NewChatModal';
+import CreateGroupModal from './CreateGroupModal';
+import JoinGroupModal from './JoinGroupModal';
 
 interface ChatItem {
   id: string;
@@ -31,6 +33,8 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isJoinGroupOpen, setIsJoinGroupOpen] = useState(false);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -125,14 +129,34 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest">
             {type === 'chats' ? 'Messages' : type === 'groups' ? 'Groups' : 'Channels'}
           </h2>
-          {type === 'chats' && (
-            <button 
-              onClick={() => setIsNewChatOpen(true)}
-              className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {type === 'chats' && (
+              <button 
+                onClick={() => setIsNewChatOpen(true)}
+                className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
+            {type === 'groups' && (
+              <>
+                <button 
+                  onClick={() => setIsJoinGroupOpen(true)}
+                  className="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-all"
+                  title="Join Group"
+                >
+                  <Globe className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={() => setIsCreateGroupOpen(true)}
+                  className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+                  title="Create Group"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
         
         <div className="relative group">
@@ -240,6 +264,14 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
           onChatSelect(id);
           setIsNewChatOpen(false);
         }}
+      />
+      <CreateGroupModal 
+        isOpen={isCreateGroupOpen} 
+        onClose={() => setIsCreateGroupOpen(false)} 
+      />
+      <JoinGroupModal 
+        isOpen={isJoinGroupOpen} 
+        onClose={() => setIsJoinGroupOpen(false)} 
       />
     </div>
   );

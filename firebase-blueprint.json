@@ -31,6 +31,7 @@
         "type": { "type": "string", "enum": ["public", "private", "supergroup", "broadcast"] },
         "adminIds": { "type": "array", "items": { "type": "string" } },
         "memberIds": { "type": "array", "items": { "type": "string" } },
+        "bannedUserIds": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "number" },
         "createdBy": { "type": "string" },
         "photoURL": { "type": "string" },

@@ -149,10 +149,31 @@ service cloud.firestore {
 
     // Groups collection
     match /groups/{groupId} {
-      allow read: if isAuthenticated();
+      function isGroupAdmin() {
+        return isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
+      }
+      function isGroupMember() {
+        return isAuthenticated() && (request.auth.uid in resource.data.memberIds);
+      }
+      function isBanned() {
+        return isAuthenticated() && ('bannedUserIds' in resource.data && request.auth.uid in resource.data.bannedUserIds);
+      }
+
+      allow read: if isAuthenticated() && !isBanned();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
-      allow delete: if isAuthenticated() && (request.auth.uid in resource.data.adminIds || isAdmin());
+      allow update: if isAuthenticated() && !isBanned() && (
+        // Admin can do anything
+        isGroupAdmin() ||
+        // Users can join/leave
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) &&
+          // Cannot add others, only self
+          (request.resource.data.memberIds.size() > resource.data.memberIds.size() ? 
+            request.resource.data.memberIds.hasAll(resource.data.memberIds.concat([request.auth.uid])) :
+            resource.data.memberIds.hasAll(request.resource.data.memberIds.concat([request.auth.uid])))
+        )
+      );
+      allow delete: if isGroupAdmin();
     }
 
     // Channels collection

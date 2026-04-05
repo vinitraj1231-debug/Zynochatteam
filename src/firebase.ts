@@ -23,29 +23,13 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// Use auto-detect for long polling which is often more stable than forcing it
+// Force long polling to avoid gRPC stream timeouts in the sandbox environment
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-
-// Explicitly enable network to kickstart the connection
-enableNetwork(db).catch(err => console.error("Failed to enable network:", err));
-
-// Test connection to Firestore
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
-    }
-    // Skip logging for other errors, as this is simply a connection test.
-  }
-}
-testConnection();
 
 export enum OperationType {
   CREATE = 'create',

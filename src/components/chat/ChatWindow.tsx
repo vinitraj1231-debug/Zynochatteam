@@ -17,7 +17,15 @@ import {
   CheckCheck,
   Clock,
   Image as ImageIcon,
-  File as FileIcon
+  File as FileIcon,
+  Users,
+  Shield,
+  Ban,
+  Trash2,
+  Info,
+  Globe,
+  Lock,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -53,34 +61,55 @@ interface ChatWindowProps {
 export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [chatUser, setChatUser] = useState<any>(null);
+  const [chatData, setChatData] = useState<any>(null);
+  const [chatType, setChatType] = useState<'private' | 'group'>('private');
   const [loading, setLoading] = useState(true);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch chat details (recipient profile)
+  // Fetch chat details
   useEffect(() => {
     if (!chatId || !auth.currentUser) return;
 
-    const fetchChatDetails = async () => {
+    const fetchDetails = async () => {
       try {
+        // Try private conversation first
         const convRef = doc(db, 'conversations', chatId);
         const convSnap = await getDoc(convRef);
+        
         if (convSnap.exists()) {
-          const convData = convSnap.data();
-          const otherId = convData.participantIds.find((id: string) => id !== auth.currentUser?.uid);
-          
+          setChatType('private');
+          const data = convSnap.data();
+          const otherId = data.participantIds.find((id: string) => id !== auth.currentUser?.uid);
           if (otherId) {
             const userSnap = await getDoc(doc(db, 'users', otherId));
             if (userSnap.exists()) {
-              setChatUser(userSnap.data());
+              setChatData(userSnap.data());
             }
           }
-
-          // Clear unread count for current user
-          if (convData.unreadCounts?.[auth.currentUser.uid] > 0) {
-            const newUnreadCounts = { ...convData.unreadCounts };
-            newUnreadCounts[auth.currentUser.uid] = 0;
-            await updateDoc(convRef, { unreadCounts: newUnreadCounts });
+          // Clear unread
+          if (data.unreadCounts?.[auth.currentUser.uid] > 0) {
+            const newUnread = { ...data.unreadCounts };
+            newUnread[auth.currentUser.uid] = 0;
+            await updateDoc(convRef, { unreadCounts: newUnread });
+          }
+        } else {
+          // Try group
+          const groupRef = doc(db, 'groups', chatId);
+          const groupSnap = await getDoc(groupRef);
+          if (groupSnap.exists()) {
+            setChatType('group');
+            setChatData(groupSnap.data());
+            
+            // Fetch members
+            const memberIds = groupSnap.data().memberIds || [];
+            const members = [];
+            for (const uid of memberIds) {
+              const uSnap = await getDoc(doc(db, 'users', uid));
+              if (uSnap.exists()) members.push(uSnap.data());
+            }
+            setGroupMembers(members);
           }
         }
       } catch (err) {
@@ -90,7 +119,7 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
       }
     };
 
-    fetchChatDetails();
+    fetchDetails();
   }, [chatId]);
 
   // Listen for messages
@@ -143,27 +172,49 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
         status: 'sent'
       });
 
-      // Update conversation metadata
-      const convRef = doc(db, 'conversations', chatId);
-      const convSnap = await getDoc(convRef);
-      if (convSnap.exists()) {
-        const convData = convSnap.data();
-        const otherId = convData.participantIds.find((id: string) => id !== auth.currentUser?.uid);
-        
-        const unreadCounts = convData.unreadCounts || {};
-        if (otherId) {
-          unreadCounts[otherId] = (unreadCounts[otherId] || 0) + 1;
-        }
+      // Update metadata
+      if (chatType === 'private') {
+        const convRef = doc(db, 'conversations', chatId);
+        const convSnap = await getDoc(convRef);
+        if (convSnap.exists()) {
+          const convData = convSnap.data();
+          const otherId = convData.participantIds.find((id: string) => id !== auth.currentUser?.uid);
+          const unreadCounts = convData.unreadCounts || {};
+          if (otherId) unreadCounts[otherId] = (unreadCounts[otherId] || 0) + 1;
 
-        await updateDoc(convRef, {
+          await updateDoc(convRef, {
+            lastMessage: messageContent,
+            updatedAt: serverTimestamp(),
+            lastMessageTimestamp: serverTimestamp(),
+            unreadCounts
+          });
+        }
+      } else {
+        const groupRef = doc(db, 'groups', chatId);
+        await updateDoc(groupRef, {
           lastMessage: messageContent,
-          updatedAt: serverTimestamp(),
-          lastMessageTimestamp: serverTimestamp(),
-          unreadCounts
+          updatedAt: serverTimestamp()
         });
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'messages');
+    }
+  };
+
+  const handleBanUser = async (userId: string) => {
+    if (chatType !== 'group' || !chatData.adminIds.includes(auth.currentUser?.uid)) return;
+    try {
+      const groupRef = doc(db, 'groups', chatId);
+      const newBanned = [...(chatData.bannedUserIds || []), userId];
+      const newMembers = chatData.memberIds.filter((id: string) => id !== userId);
+      await updateDoc(groupRef, {
+        bannedUserIds: newBanned,
+        memberIds: newMembers
+      });
+      setGroupMembers(prev => prev.filter(m => m.uid !== userId));
+      setChatData(prev => ({ ...prev, bannedUserIds: newBanned, memberIds: newMembers }));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'groups');
     }
   };
 
@@ -176,33 +227,39 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 relative overflow-hidden">
       {/* Header */}
       <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsInfoOpen(true)}>
             <div className="relative">
               <div className="w-12 h-12 bg-slate-100 rounded-[1.2rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-sm">
-                {chatUser?.photoURL ? (
-                  <img src={chatUser.photoURL} alt="" className="w-full h-full object-cover" />
+                {chatData?.photoURL ? (
+                  <img src={chatData.photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-6 h-6 text-slate-300" />
+                  chatType === 'private' ? <User className="w-6 h-6 text-slate-300" /> : <Users className="w-6 h-6 text-slate-300" />
                 )}
               </div>
-              {chatUser?.status === 'online' && (
+              {chatType === 'private' && chatData?.isOnline && (
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
               )}
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 tracking-tight">{chatUser?.displayName}</h2>
-              <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">{chatUser?.status}</p>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight">
+                {chatType === 'private' ? chatData?.displayName || 'User' : chatData?.name || 'Group'}
+              </h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {chatType === 'private' ? (chatData?.isOnline ? 'Online' : 'Offline') : `${chatData?.memberIds?.length || 0} members`}
+              </p>
             </div>
           </div>
         </div>
@@ -283,7 +340,7 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
             <div className="space-y-2">
               <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Say Hello!</h3>
               <p className="text-sm font-bold text-slate-400 max-w-xs mx-auto">
-                Start a conversation with {chatUser?.displayName}. Your messages are secure and encrypted.
+                Start a conversation with {chatData?.displayName}. Your messages are secure and encrypted.
               </p>
             </div>
           </div>
@@ -331,6 +388,98 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
           </div>
         </form>
       </div>
+      {/* Info Sidebar */}
+      <AnimatePresence>
+        {isInfoOpen && (
+          <div className="fixed inset-0 z-[100] flex justify-end">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsInfoOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">
+                  {chatType === 'private' ? 'User Info' : 'Group Info'}
+                </h3>
+                <button onClick={() => setIsInfoOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-32 h-32 bg-slate-100 rounded-[2.5rem] flex items-center justify-center overflow-hidden shadow-inner">
+                    {chatData?.photoURL ? (
+                      <img src={chatData.photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      chatType === 'private' ? <User className="w-12 h-12 text-slate-300" /> : <Users className="w-12 h-12 text-slate-300" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-slate-900 uppercase tracking-widest">
+                      {chatType === 'private' ? chatData?.displayName : chatData?.name}
+                    </h4>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      {chatType === 'private' ? `@${chatData?.username}` : chatData?.type}
+                    </p>
+                  </div>
+                </div>
+
+                {chatData?.description && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</p>
+                    <p className="text-sm text-slate-600 leading-relaxed">{chatData.description}</p>
+                  </div>
+                )}
+
+                {chatType === 'group' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Members ({groupMembers.length})</p>
+                    </div>
+                    <div className="space-y-2">
+                      {groupMembers.map((member) => (
+                        <div key={member.uid} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl group/member">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-sm">
+                              {member.photoURL ? (
+                                <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-5 h-5 text-slate-300" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-xs font-black text-slate-900 uppercase tracking-widest">{member.displayName}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">@{member.username}</p>
+                            </div>
+                          </div>
+                          {chatData.adminIds.includes(auth.currentUser?.uid) && member.uid !== auth.currentUser?.uid && (
+                            <button 
+                              onClick={() => handleBanUser(member.uid)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover/member:opacity-100"
+                              title="Ban User"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -112,6 +112,28 @@ export default function Dashboard() {
     );
   }
 
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'chats':
@@ -165,14 +187,15 @@ export default function Dashboard() {
 
               <div className="space-y-4">
                 {[
-                  { icon: Shield, label: 'Privacy & Security', desc: 'Manage your security settings', color: 'indigo' },
-                  { icon: Bell, label: 'Notifications', desc: 'Custom alerts and sounds', color: 'purple' },
-                  { icon: Moon, label: 'Appearance', desc: 'Dark mode and themes', color: 'blue' },
-                  { icon: Globe, label: 'Language', desc: 'English (US)', color: 'emerald' },
-                  { icon: HelpCircle, label: 'Help & Support', desc: 'FAQs and contact us', color: 'amber' },
+                  { id: 'privacy', icon: Shield, label: 'Privacy & Security', desc: 'Manage your security settings', color: 'indigo' },
+                  { id: 'notifications', icon: Bell, label: 'Notifications', desc: 'Custom alerts and sounds', color: 'purple' },
+                  { id: 'appearance', icon: Moon, label: 'Appearance', desc: isDarkMode ? 'Dark Mode On' : 'Light Mode On', color: 'blue', onClick: toggleDarkMode },
+                  { id: 'language', icon: Globe, label: 'Language', desc: 'English (US)', color: 'emerald' },
+                  { id: 'help', icon: HelpCircle, label: 'Help & Support', desc: 'FAQs and contact us', color: 'amber' },
                 ].map((item, i) => (
                   <button 
                     key={i}
+                    onClick={item.onClick}
                     className="w-full bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all"
                   >
                     <div className="flex items-center gap-4">
