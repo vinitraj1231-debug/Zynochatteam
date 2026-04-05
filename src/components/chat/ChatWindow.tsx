@@ -32,7 +32,6 @@ import { cn } from '@/lib/utils';
 import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
 import { 
   collection, 
-  addDoc, 
   query, 
   where, 
   orderBy, 
@@ -40,7 +39,9 @@ import {
   serverTimestamp,
   doc,
   getDoc,
-  updateDoc
+  updateDoc,
+  setDoc,
+  deleteDoc
 } from 'firebase/firestore';
 
 interface Message {
@@ -176,7 +177,12 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
 
     try {
       // Add message
-      await addDoc(collection(db, 'messages'), {
+      const messagesRef = collection(db, 'messages');
+      const newMessageRef = doc(messagesRef);
+      const messageId = newMessageRef.id;
+
+      await setDoc(newMessageRef, {
+        id: messageId,
         chatId,
         senderId: auth.currentUser.uid,
         senderName: auth.currentUser.displayName || 'User',

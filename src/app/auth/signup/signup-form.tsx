@@ -30,11 +30,26 @@ export default function SignupForm() {
       const userCredential = await signInAnonymously(auth);
       const user = userCredential.user;
 
-      // Save user info to Firestore
+      const formattedUsername = username.startsWith('@') ? username.toLowerCase() : `@${username.toLowerCase()}`;
+
+      // 1. Try to reserve the username
+      try {
+        await setDoc(doc(db, 'usernames', formattedUsername), { uid: user.uid });
+      } catch (err: any) {
+        if (err.message?.includes('insufficient permissions')) {
+          setError('This username is already taken. Please choose another one.');
+        } else {
+          handleFirestoreError(err, OperationType.WRITE, `usernames/${formattedUsername}`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // 2. Save user info to Firestore
       const userData = {
         uid: user.uid,
         displayName,
-        username: username.startsWith('@') ? username : `@${username}`,
+        username: formattedUsername,
         bio: '',
         photoURL: '',
         createdAt: serverTimestamp(),

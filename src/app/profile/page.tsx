@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, query, collection, where, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
 export default function ProfilePage() {
@@ -124,9 +124,32 @@ export default function ProfilePage() {
     
     try {
       const userRef = doc(db, 'users', user.uid);
+      const newUsername = editForm.username.startsWith('@') ? editForm.username.toLowerCase() : `@${editForm.username.toLowerCase()}`;
+      const oldUsername = user.username;
+
+      if (newUsername !== oldUsername) {
+        // 1. Try to reserve the new username
+        try {
+          await setDoc(doc(db, 'usernames', newUsername), { uid: user.uid });
+        } catch (err: any) {
+          if (err.message?.includes('insufficient permissions')) {
+            throw new Error('This username is already taken. Please choose another one.');
+          }
+          throw err;
+        }
+
+        // 2. Delete the old username
+        try {
+          await deleteDoc(doc(db, 'usernames', oldUsername));
+        } catch (err) {
+          console.error("Error deleting old username:", err);
+          // Continue anyway, it's not critical if the old one stays reserved for a bit
+        }
+      }
+
       await updateDoc(userRef, {
         ...editForm,
-        username: editForm.username.startsWith('@') ? editForm.username : `@${editForm.username}`
+        username: newUsername
       });
       
       setSaveSuccess(true);
@@ -134,8 +157,12 @@ export default function ProfilePage() {
         setIsEditModalOpen(false);
         setSaveSuccess(false);
       }, 1500);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    } catch (err: any) {
+      if (err.message?.includes('already taken')) {
+        alert(err.message);
+      } else {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+      }
     } finally {
       setIsSaving(false);
     }

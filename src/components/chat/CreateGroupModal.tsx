@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { X, Users, Camera, Loader2, Globe, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 interface CreateGroupModalProps {
@@ -24,7 +24,12 @@ export default function CreateGroupModal({ isOpen, onClose }: CreateGroupModalPr
 
     setLoading(true);
     try {
+      const groupsRef = collection(db, 'groups');
+      const newGroupRef = doc(groupsRef);
+      const groupId = newGroupRef.id;
+
       const groupData = {
+        id: groupId,
         name: name.trim(),
         description: description.trim(),
         type,
@@ -38,7 +43,7 @@ export default function CreateGroupModal({ isOpen, onClose }: CreateGroupModalPr
         updatedAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'groups'), groupData);
+      await setDoc(newGroupRef, groupData);
       onClose();
       setName('');
       setDescription('');

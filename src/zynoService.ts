@@ -3,7 +3,6 @@ import {
   query, 
   where, 
   getDocs, 
-  addDoc, 
   setDoc, 
   doc, 
   onSnapshot, 
@@ -394,8 +393,10 @@ export const ZynoService = {
   // New methods for Zynochat
   async createStory(story: Omit<Story, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'stories'), clean(story));
-      await updateDoc(docRef, { id: docRef.id });
+      const docRef = doc(collection(db, 'stories'));
+      const id = docRef.id;
+      await setDoc(docRef, clean({ ...story, id }));
+      return id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'stories');
     }
@@ -403,8 +404,10 @@ export const ZynoService = {
 
   async createPost(post: Omit<Post, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'posts'), clean(post));
-      await updateDoc(docRef, { id: docRef.id });
+      const docRef = doc(collection(db, 'posts'));
+      const id = docRef.id;
+      await setDoc(docRef, clean({ ...post, id }));
+      return id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'posts');
     }
@@ -412,8 +415,10 @@ export const ZynoService = {
 
   async createHelpTicket(ticket: Omit<HelpTicket, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'help_tickets'), clean(ticket));
-      await updateDoc(docRef, { id: docRef.id });
+      const docRef = doc(collection(db, 'help_tickets'));
+      const id = docRef.id;
+      await setDoc(docRef, clean({ ...ticket, id }));
+      return id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'help_tickets');
     }
@@ -421,8 +426,10 @@ export const ZynoService = {
 
   async createReport(report: Omit<Report, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'reports'), clean(report));
-      await updateDoc(docRef, { id: docRef.id });
+      const docRef = doc(collection(db, 'reports'));
+      const id = docRef.id;
+      await setDoc(docRef, clean({ ...report, id }));
+      return id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'reports');
     }
@@ -492,8 +499,10 @@ export const ZynoService = {
 
   async createBanner(banner: Omit<Banner, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'banners'), clean(banner));
-      await updateDoc(docRef, { id: docRef.id });
+      const docRef = doc(collection(db, 'banners'));
+      const id = docRef.id;
+      await setDoc(docRef, clean({ ...banner, id }));
+      return id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'banners');
     }

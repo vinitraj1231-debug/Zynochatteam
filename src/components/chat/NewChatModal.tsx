@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Search, X, User as UserIcon, Loader2, MessageSquare, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 interface NewChatModalProps {

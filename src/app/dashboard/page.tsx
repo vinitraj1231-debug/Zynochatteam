@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { auth, db } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where, setDoc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
 // Chat Components
@@ -39,6 +39,25 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('chats');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [stats, setStats] = useState({ totalMessages: 0, activeChats: 0 });
+
+  // Ensure username is reserved (for existing users)
+  useEffect(() => {
+    if (!user?.uid || !user?.username) return;
+
+    const checkUsername = async () => {
+      try {
+        const usernameRef = doc(db, 'usernames', user.username);
+        const snap = await getDoc(usernameRef);
+        if (!snap.exists()) {
+          await setDoc(usernameRef, { uid: user.uid });
+        }
+      } catch (err) {
+        console.error("Error reserving username:", err);
+      }
+    };
+
+    checkUsername();
+  }, [user?.uid, user?.username]);
 
   useEffect(() => {
     if (!user?.uid) return;

@@ -115,17 +115,21 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
 
+    function isTimestamp(field) {
+      return request.resource.data[field] is timestamp;
+    }
+
     function isValidUser(data) {
       return hasRequiredFields(['uid', 'username', 'createdAt', 'role']) &&
              hasOnlyAllowedFields(['uid', 'username', 'displayName', 'photoURL', 'bio', 'location', 'createdAt', 'isOnline', 'lastSeen', 'role', 'isSuspended']) &&
              data.uid == request.auth.uid &&
              data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
-             data.username.matches("^[a-zA-Z0-9_]+$") &&
+             data.username.matches("^[a-zA-Z0-9_@]+$") &&
              isValidOptionalString('displayName', 1, 50) &&
              isValidOptionalUrl('photoURL') &&
              isValidOptionalString('bio', 0, 500) &&
              isValidOptionalString('location', 0, 100) &&
-             data.createdAt is number &&
+             (data.createdAt is timestamp || data.createdAt is number) &&
              isUnchanged('createdAt') &&
              isUnchanged('uid') &&
              data.role in ['user', 'admin', 'moderator'] &&
@@ -144,7 +148,7 @@ service cloud.firestore {
              data.type in ['public', 'private', 'supergroup', 'broadcast'] &&
              data.adminIds is list && data.adminIds.size() > 0 &&
              data.memberIds is list && data.memberIds.size() > 0 &&
-             data.createdAt is number;
+             (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidChannel(data) {
@@ -159,7 +163,7 @@ service cloud.firestore {
              data.type in ['public', 'private'] &&
              data.adminIds is list && data.adminIds.size() > 0 &&
              data.subscriberIds is list &&
-             data.createdAt is number;
+             (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidMessage(data) {
@@ -174,7 +178,8 @@ service cloud.firestore {
              data.type in ['text', 'image', 'system', 'file', 'voice'] &&
              isValidOptionalUrl('imageUrl') &&
              isValidOptionalUrl('fileUrl') &&
-             isValidOptionalString('fileName', 1, 255);
+             isValidOptionalString('fileName', 1, 255) &&
+             (data.timestamp is timestamp || data.timestamp is number);
     }
 
     function isValidConversation(data) {
@@ -184,7 +189,7 @@ service cloud.firestore {
              request.auth.uid in data.participantIds &&
              isUnchanged('id') &&
              isUnchanged('participantIds') &&
-             data.updatedAt is number;
+             (data.updatedAt is timestamp || data.updatedAt is number);
     }
 
     function isValidStory(data) {
@@ -196,9 +201,8 @@ service cloud.firestore {
              isUnchanged('createdAt') &&
              isValidUrl('mediaUrl') &&
              data.type in ['image', 'video'] &&
-             data.createdAt is number &&
-             data.expiresAt is number &&
-             data.expiresAt > data.createdAt;
+             (data.createdAt is timestamp || data.createdAt is number) &&
+             (data.expiresAt is timestamp || data.expiresAt is number);
     }
 
     function isValidPost(data) {
@@ -209,7 +213,7 @@ service cloud.firestore {
              isUnchanged('userId') &&
              isUnchanged('createdAt') &&
              data.content is string && data.content.size() <= 10000 &&
-             data.createdAt is number;
+             (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidHelpTicket(data) {
@@ -223,7 +227,7 @@ service cloud.firestore {
              data.category in ["login", "chat", "payment", "report", "account", "other"] &&
              data.description is string && data.description.size() >= 10 && data.description.size() <= 2000 &&
              data.status in ["open", "pending", "resolved"] &&
-             data.createdAt is number;
+             (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidReport(data) {
@@ -237,7 +241,7 @@ service cloud.firestore {
              data.reason in ["spam", "abuse", "impersonation", "scam", "inappropriate", "other"] &&
              isValidOptionalString('details', 0, 1000) &&
              data.status in ["pending", "reviewed", "action_taken"] &&
-             data.createdAt is number;
+             (data.createdAt is timestamp || data.createdAt is number);
     }
 
     // ===============================================================
@@ -247,6 +251,15 @@ service cloud.firestore {
     // Default deny
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Usernames collection (for unique usernames)
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+                      request.resource.data.uid == request.auth.uid &&
+                      !exists(/databases/$(database)/documents/usernames/$(username));
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
     // Users collection

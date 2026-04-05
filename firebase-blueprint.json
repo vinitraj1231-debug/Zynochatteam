@@ -206,6 +206,17 @@
     "/banners/{bannerId}": {
       "schema": "Banner",
       "description": "Admin banners"
+    },
+    "/usernames/{username}": {
+      "schema": {
+        "title": "Username",
+        "type": "object",
+        "properties": {
+          "uid": { "type": "string" }
+        },
+        "required": ["uid"]
+      },
+      "description": "Unique username registry"
     }
   }
 }
