@@ -1,0 +1,289 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Search, 
+  MoreVertical, 
+  Phone, 
+  Video, 
+  Send, 
+  Paperclip, 
+  Smile, 
+  Mic, 
+  ChevronLeft,
+  User,
+  MessageSquare,
+  Check,
+  CheckCheck,
+  Clock,
+  Image as ImageIcon,
+  File as FileIcon
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/lib/utils';
+import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  doc,
+  getDoc
+} from 'firebase/firestore';
+
+interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: any;
+  type: 'text' | 'image' | 'file' | 'voice';
+  status?: 'sent' | 'delivered' | 'read';
+}
+
+interface ChatWindowProps {
+  chatId: string;
+  onBack?: () => void;
+}
+
+export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [chatUser, setChatUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Mock chat user for now (in real app, fetch from Firestore based on chatId)
+  useEffect(() => {
+    setChatUser({
+      displayName: 'Alex Rivera',
+      username: '@alex_zyno',
+      status: 'online',
+      photoURL: null
+    });
+    setLoading(false);
+  }, [chatId]);
+
+  // Listen for messages
+  useEffect(() => {
+    if (!chatId) return;
+
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+      messagesRef,
+      where('chatId', '==', chatId),
+      orderBy('timestamp', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Message[];
+      setMessages(msgs);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
+    }, (err) => {
+      console.error("Error fetching messages:", err);
+    });
+
+    return () => unsubscribe();
+  }, [chatId]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !auth.currentUser) return;
+
+    const messageContent = newMessage.trim();
+    setNewMessage('');
+
+    try {
+      await addDoc(collection(db, 'messages'), {
+        chatId,
+        senderId: auth.currentUser.uid,
+        senderName: auth.currentUser.displayName || 'User',
+        content: messageContent,
+        timestamp: serverTimestamp(),
+        type: 'text',
+        status: 'sent'
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'messages');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
+      {/* Header */}
+      <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onBack}
+            className="lg:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-12 h-12 bg-slate-100 rounded-[1.2rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-sm">
+                {chatUser?.photoURL ? (
+                  <img src={chatUser.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-6 h-6 text-slate-300" />
+                )}
+              </div>
+              {chatUser?.status === 'online' && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight">{chatUser?.displayName}</h2>
+              <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">{chatUser?.status}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 md:gap-2">
+          <button className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+            <Phone className="w-5 h-5" />
+          </button>
+          <button className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+            <Video className="w-5 h-5" />
+          </button>
+          <button className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
+
+      {/* Messages Area */}
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 bg-slate-50/30"
+      >
+        {messages.length > 0 ? (
+          messages.map((msg, i) => {
+            const isMe = msg.senderId === auth.currentUser?.uid;
+            const showAvatar = i === 0 || messages[i-1].senderId !== msg.senderId;
+            
+            return (
+              <motion.div 
+                key={msg.id}
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className={cn(
+                  "flex items-end gap-3 max-w-[85%] md:max-w-[70%]",
+                  isMe ? "ml-auto flex-row-reverse" : "mr-auto"
+                )}
+              >
+                {!isMe && (
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 flex-shrink-0 overflow-hidden">
+                    {showAvatar ? (
+                      <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-[10px] font-black">
+                        {msg.senderName.charAt(0)}
+                      </div>
+                    ) : <div className="w-full h-full" />}
+                  </div>
+                )}
+                
+                <div className="space-y-1">
+                  <div className={cn(
+                    "p-4 rounded-[1.5rem] shadow-sm relative group",
+                    isMe 
+                      ? "bg-indigo-600 text-white rounded-br-none" 
+                      : "bg-white text-slate-900 rounded-bl-none border border-slate-100"
+                  )}>
+                    <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                    
+                    <div className={cn(
+                      "flex items-center gap-1 mt-1 justify-end",
+                      isMe ? "text-white/60" : "text-slate-400"
+                    )}>
+                      <span className="text-[9px] font-bold uppercase tracking-widest">
+                        {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                      </span>
+                      {isMe && (
+                        <CheckCheck className="w-3 h-3" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+            <div className="w-20 h-20 bg-white rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-indigo-500/5 border border-slate-100 animate-float">
+              <MessageSquare className="w-10 h-10 text-indigo-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest">Say Hello!</h3>
+              <p className="text-sm font-bold text-slate-400 max-w-xs mx-auto">
+                Start a conversation with {chatUser?.displayName}. Your messages are secure and encrypted.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 md:p-6 bg-white border-t border-slate-100 pb-24 lg:pb-6">
+        <form 
+          onSubmit={handleSendMessage}
+          className="max-w-4xl mx-auto flex items-center gap-2 md:gap-4 bg-slate-50 p-2 rounded-[2rem] border border-slate-100 focus-within:ring-4 focus-within:ring-indigo-500/5 focus-within:border-indigo-200 transition-all"
+        >
+          <div className="flex items-center gap-1 pl-2">
+            <button type="button" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-full transition-all">
+              <Paperclip className="w-5 h-5" />
+            </button>
+            <button type="button" className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-full transition-all">
+              <Smile className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <input 
+            type="text" 
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 bg-transparent border-none py-3 px-2 text-sm font-bold text-slate-900 focus:ring-0 placeholder:text-slate-400"
+          />
+          
+          <div className="flex items-center gap-2 pr-2">
+            {newMessage.trim() ? (
+              <motion.button 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                type="submit"
+                className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all"
+              >
+                <Send className="w-5 h-5" />
+              </motion.button>
+            ) : (
+              <button type="button" className="w-10 h-10 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center hover:bg-slate-300 transition-all">
+                <Mic className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
