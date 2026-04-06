@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, MoreVertical, MessageSquare, Users, Globe, Check, CheckCheck, User as UserIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { db, auth } from '@/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '@/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import NewChatModal from './NewChatModal';
 import CreateGroupModal from './CreateGroupModal';
@@ -110,7 +110,7 @@ export default function ChatList({ type, onChatSelect, activeChatId }: ChatListP
       setChats(chatData);
       setLoading(false);
     }, (err) => {
-      console.error("Error fetching chats:", err);
+      handleFirestoreError(err, OperationType.LIST, type);
       setLoading(false);
     });
 

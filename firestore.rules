@@ -115,90 +115,81 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
 
-    function isTimestamp(field) {
-      return request.resource.data[field] is timestamp;
-    }
-
     function isValidUser(data) {
       return hasRequiredFields(['uid', 'username', 'createdAt', 'role']) &&
-             hasOnlyAllowedFields(['uid', 'username', 'displayName', 'photoURL', 'bio', 'location', 'createdAt', 'isOnline', 'lastSeen', 'role', 'isSuspended']) &&
+             hasOnlyAllowedFields(['uid', 'username', 'displayName', 'email', 'photoURL', 'bio', 'location', 'createdAt', 'isOnline', 'lastSeen', 'role', 'isSuspended', 'blockedUids', 'blockedByUids', 'privacy', 'stats', 'status']) &&
              data.uid == request.auth.uid &&
              data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
              data.username.matches("^[a-zA-Z0-9_@]+$") &&
-             isValidOptionalString('displayName', 1, 50) &&
+             isValidOptionalString('displayName', 1, 100) &&
+             isValidOptionalString('email', 5, 255) &&
              isValidOptionalUrl('photoURL') &&
-             isValidOptionalString('bio', 0, 500) &&
-             isValidOptionalString('location', 0, 100) &&
+             isValidOptionalString('bio', 0, 1000) &&
+             isValidOptionalString('location', 0, 200) &&
              (data.createdAt is timestamp || data.createdAt is number) &&
-             isUnchanged('createdAt') &&
              isUnchanged('uid') &&
              data.role in ['user', 'admin', 'moderator'] &&
-             (data.role == 'user' || isAdmin()); // Only admins can set admin/moderator roles
+             (data.role == 'user' || isAdmin());
     }
 
     function isValidGroup(data) {
       return hasRequiredFields(['id', 'name', 'type', 'adminIds', 'memberIds', 'createdAt']) &&
-             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'memberIds', 'bannedUserIds', 'createdAt', 'createdBy', 'photoURL', 'pinnedMessageId', 'slowMode', 'lastMessage', 'updatedAt']) &&
+             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'memberIds', 'bannedUserIds', 'createdAt', 'createdBy', 'photoURL', 'pinnedMessageId', 'slowMode', 'lastMessage', 'updatedAt', 'isSupergroup', 'permissions', 'videoChat']) &&
              data.id is string &&
              isUnchanged('id') &&
-             isUnchanged('createdAt') &&
-             data.name is string && data.name.size() >= 2 && data.name.size() <= 50 &&
-             isValidOptionalString('handle', 3, 30) &&
-             isValidOptionalString('description', 0, 1000) &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             isValidOptionalString('handle', 3, 50) &&
+             isValidOptionalString('description', 0, 2000) &&
              data.type in ['public', 'private', 'supergroup', 'broadcast'] &&
-             data.adminIds is list && data.adminIds.size() > 0 &&
-             data.memberIds is list && data.memberIds.size() > 0 &&
+             data.adminIds is list &&
+             data.memberIds is list &&
              (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidChannel(data) {
       return hasRequiredFields(['id', 'name', 'type', 'adminIds', 'subscriberIds', 'createdAt']) &&
-             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'subscriberIds', 'createdAt', 'createdBy', 'photoURL', 'viewCount']) &&
+             hasOnlyAllowedFields(['id', 'name', 'handle', 'description', 'type', 'adminIds', 'subscriberIds', 'createdAt', 'createdBy', 'photoURL', 'viewCount', 'isBroadcast', 'videoChat']) &&
              data.id is string &&
              isUnchanged('id') &&
-             isUnchanged('createdAt') &&
-             data.name is string && data.name.size() >= 2 && data.name.size() <= 50 &&
-             isValidOptionalString('handle', 3, 30) &&
-             isValidOptionalString('description', 0, 1000) &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             isValidOptionalString('handle', 3, 50) &&
+             isValidOptionalString('description', 0, 2000) &&
              data.type in ['public', 'private'] &&
-             data.adminIds is list && data.adminIds.size() > 0 &&
+             data.adminIds is list &&
              data.subscriberIds is list &&
              (data.createdAt is timestamp || data.createdAt is number);
     }
 
     function isValidMessage(data) {
       return hasRequiredFields(['id', 'chatId', 'senderId', 'content', 'timestamp', 'type']) &&
-             hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'senderName', 'content', 'timestamp', 'type', 'imageUrl', 'fileUrl', 'fileName', 'replyTo', 'status']) &&
+             hasOnlyAllowedFields(['id', 'chatId', 'senderId', 'senderName', 'senderPhotoURL', 'recipientId', 'content', 'timestamp', 'type', 'imageUrl', 'fileUrl', 'fileName', 'groundingUrls', 'replyTo', 'reactions', 'status', 'isDeleted', 'deletedBy']) &&
              data.senderId == request.auth.uid &&
              isUnchanged('id') &&
              isUnchanged('chatId') &&
              isUnchanged('senderId') &&
-             isUnchanged('timestamp') &&
-             data.content is string && data.content.size() <= 5000 &&
+             data.content is string && data.content.size() <= 10000 &&
              data.type in ['text', 'image', 'system', 'file', 'voice'] &&
              isValidOptionalUrl('imageUrl') &&
              isValidOptionalUrl('fileUrl') &&
-             isValidOptionalString('fileName', 1, 255) &&
+             isValidOptionalString('fileName', 1, 512) &&
              (data.timestamp is timestamp || data.timestamp is number);
     }
 
     function isValidConversation(data) {
       return hasRequiredFields(['id', 'participantIds', 'updatedAt']) &&
              hasOnlyAllowedFields(['id', 'participantIds', 'lastMessage', 'lastMessageTimestamp', 'unreadCounts', 'updatedAt']) &&
-             data.participantIds is list && data.participantIds.size() == 2 &&
+             data.participantIds is list &&
              request.auth.uid in data.participantIds &&
              isUnchanged('id') &&
-             isUnchanged('participantIds') &&
              (data.updatedAt is timestamp || data.updatedAt is number);
     }
 
     function isValidStory(data) {
       return hasRequiredFields(['id', 'userId', 'mediaUrl', 'type', 'createdAt', 'expiresAt']) &&
-             hasOnlyAllowedFields(['id', 'userId', 'mediaUrl', 'type', 'createdAt', 'expiresAt', 'viewers']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'authorId', 'mediaUrl', 'contentUrl', 'type', 'createdAt', 'expiresAt', 'viewers']) &&
              data.userId == request.auth.uid &&
              isUnchanged('id') &&
              isUnchanged('userId') &&
-             isUnchanged('createdAt') &&
              isValidUrl('mediaUrl') &&
              data.type in ['image', 'video'] &&
              (data.createdAt is timestamp || data.createdAt is number) &&
@@ -207,12 +198,11 @@ service cloud.firestore {
 
     function isValidPost(data) {
       return hasRequiredFields(['id', 'userId', 'content', 'createdAt']) &&
-             hasOnlyAllowedFields(['id', 'userId', 'content', 'mediaUrls', 'createdAt', 'likes']) &&
+             hasOnlyAllowedFields(['id', 'userId', 'authorId', 'content', 'mediaUrls', 'createdAt', 'likes', 'likesCount', 'comments', 'commentsCount']) &&
              data.userId == request.auth.uid &&
              isUnchanged('id') &&
              isUnchanged('userId') &&
-             isUnchanged('createdAt') &&
-             data.content is string && data.content.size() <= 10000 &&
+             data.content is string && data.content.size() <= 20000 &&
              (data.createdAt is timestamp || data.createdAt is number);
     }
 
@@ -222,12 +212,9 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              isUnchanged('id') &&
              isUnchanged('userId') &&
-             isUnchanged('createdAt') &&
-             data.title is string && data.title.size() >= 5 && data.title.size() <= 100 &&
-             data.category in ["login", "chat", "payment", "report", "account", "other"] &&
-             data.description is string && data.description.size() >= 10 && data.description.size() <= 2000 &&
-             data.status in ["open", "pending", "resolved"] &&
-             (data.createdAt is timestamp || data.createdAt is number);
+             data.title is string && data.title.size() <= 200 &&
+             data.category in ['login', 'chat', 'payment', 'report', 'account', 'other'] &&
+             data.status in ['open', 'pending', 'resolved'];
     }
 
     function isValidReport(data) {
@@ -236,12 +223,15 @@ service cloud.firestore {
              data.reporterId == request.auth.uid &&
              isUnchanged('id') &&
              isUnchanged('reporterId') &&
-             isUnchanged('targetId') &&
-             isUnchanged('createdAt') &&
-             data.reason in ["spam", "abuse", "impersonation", "scam", "inappropriate", "other"] &&
-             isValidOptionalString('details', 0, 1000) &&
-             data.status in ["pending", "reviewed", "action_taken"] &&
-             (data.createdAt is timestamp || data.createdAt is number);
+             data.reason in ['spam', 'abuse', 'impersonation', 'scam', 'inappropriate', 'other'] &&
+             data.status in ['pending', 'reviewed', 'action_taken'];
+    }
+
+    function isValidBanner(data) {
+      return hasRequiredFields(['id', 'imageUrl', 'isActive', 'createdAt']) &&
+             hasOnlyAllowedFields(['id', 'title', 'description', 'imageUrl', 'link', 'isActive', 'createdAt']) &&
+             isUnchanged('id') &&
+             isValidUrl('imageUrl');
     }
 
     // ===============================================================
@@ -294,8 +284,8 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) &&
           // Cannot add others, only self
           (request.resource.data.memberIds.size() > resource.data.memberIds.size() ? 
-            request.resource.data.memberIds.hasAll(resource.data.memberIds.concat([request.auth.uid])) :
-            resource.data.memberIds.hasAll(request.resource.data.memberIds.concat([request.auth.uid])))
+            request.resource.data.memberIds.hasAll(resource.data.memberIds) :
+            resource.data.memberIds.hasAll(request.resource.data.memberIds))
         )
       );
       allow delete: if isGroupAdmin();
@@ -345,6 +335,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isModerator());
       allow create: if isAuthenticated() && isValidHelpTicket(request.resource.data);
       allow update: if isModerator() && isValidHelpTicket(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // Reports
@@ -352,6 +343,7 @@ service cloud.firestore {
       allow read: if isModerator();
       allow create: if isAuthenticated() && isValidReport(request.resource.data);
       allow update: if isModerator() && isValidReport(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // Banners

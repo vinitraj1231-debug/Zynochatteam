@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { auth, db } from '@/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '@/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, query, collection, where, setDoc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -69,7 +69,7 @@ export default function Dashboard() {
     );
     const unsubChats = onSnapshot(chatsQuery, (snap) => {
       setStats(prev => ({ ...prev, activeChats: snap.size }));
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'conversations'));
 
     // Fetch total messages count
     const messagesQuery = query(
@@ -78,7 +78,7 @@ export default function Dashboard() {
     );
     const unsubMessages = onSnapshot(messagesQuery, (snap) => {
       setStats(prev => ({ ...prev, totalMessages: snap.size }));
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'messages'));
 
     return () => {
       unsubChats();
@@ -99,7 +99,7 @@ export default function Dashboard() {
           }
           setLoading(false);
         }, (err) => {
-          console.error("Error fetching user doc:", err);
+          handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
           setLoading(false);
         });
       } else {
